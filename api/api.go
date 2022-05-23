@@ -20,7 +20,8 @@ func ShiftPath(p string) (head, tail string) {
 }
 
 type RuntimeConfig struct {
-	datadir string
+	Datadir    string
+	AuthConfig AuthProviders
 }
 
 type App struct {
@@ -47,41 +48,71 @@ type Summits struct {
 	Summits []Summit `json:"summits"`
 }
 
+func (h *Api) HandleSummits(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Only GET is allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+	}
+	summits, err := LoadSummits(h.Config.Datadir)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	resp, err := json.Marshal(Summits{summits})
+	if err != nil {
+		log.Printf("Error: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	fmt.Fprintf(w, string(resp))
+}
+
+func (h *Api) HandleAuth(w http.ResponseWriter, r *http.Request) {
+	var head string
+	head, r.URL.Path = ShiftPath(r.URL.Path)
+	provider := h.Config.AuthConfig[head]
+	if provider != nil {
+		http.Redirect(
+			w, r, provider.AuthCodeURL("FIXME"), http.StatusTemporaryRedirect)
+	}
+}
+
+
 func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var head string
 	head, r.URL.Path = ShiftPath(r.URL.Path)
-	if head == "summits" {
-		if r.Method != "GET" {
-			http.Error(w, "Only GET is allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-		}
-		summits, err := LoadSummits(h.Config.datadir)
-		if err != nil {
-			log.Printf("Error: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-		resp, err := json.Marshal(Summits{summits})
-		if err != nil {
-			log.Printf("Error: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, string(resp))
-		return
+	switch head {
+	case "summits":
+		h.HandleSummits(w, r)
+	case "auth":
+		h.HandleAuth(w, r)
+	default:
+		http.NotFound(w, r)
 	}
-	http.NotFound(w, r)
 }
 
 func main() {
 	if len(os.Args) != 3 {
 		log.Fatal("Usage: api <datadir> <ui_dir>")
 	}
-	conf := &RuntimeConfig{datadir: path.Clean(os.Args[1])}
+	conf := &RuntimeConfig{
+		Datadir:    path.Clean(os.Args[1]),
+		AuthConfig: GetAuthProviders(),
+	}
+	db, err := NewDatabase(":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = db.Migrate()
+	if err != nil {
+		log.Fatal(err)
+	}
 	app := &App{Api: &Api{Config: conf}, UIDir: os.Args[2]}
 	log.Fatal(http.ListenAndServe(":5000", app))
 }

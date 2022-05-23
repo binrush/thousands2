@@ -6,8 +6,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+    "net/url"
 	"reflect"
 	"testing"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/vk"
 )
 
 func AreEqualJSON(s1, s2 string) (bool, error) {
@@ -27,7 +30,36 @@ func AreEqualJSON(s1, s2 string) (bool, error) {
 	return reflect.DeepEqual(o1, o2), nil
 }
 
+func MockDatabase(t *testing.T) *Database {
+	db, err := NewDatabase(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = db.Migrate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return db
+}
+
+
+func MockAuthProviders() AuthProviders {
+    providers := make(AuthProviders)
+    providers["vk"] = &oauth2.Config{
+	    RedirectURL:  "https://thousands.su/api/auth/authorized",
+	    ClientID:     "MOCK_VK_CLIENT_ID",
+	    ClientSecret: "MOCK_VK_CLIENT_SECRET",
+	    Scopes:       []string{},
+	    Endpoint:     vk.Endpoint,
+    }
+    return providers
+}
+
+
 func TestSummitsHandler(t *testing.T) {
+	db := MockDatabase(t)
+	defer db.Pool.Close()
+
 	req, err := http.NewRequest("GET", "/summits", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +67,7 @@ func TestSummitsHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	conf := &RuntimeConfig{datadir: "testdata/summits"}
+	conf := &RuntimeConfig{Datadir: "testdata/summits"}
 	api := Api{Config: conf}
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
@@ -62,4 +94,32 @@ func TestSummitsHandler(t *testing.T) {
 		t.Errorf("handler returned unexpected body: got %v want %v",
 			rr.Body.String(), expected_str)
 	}
+}
+
+func TestAuthHandler(t *testing.T) {
+	req, err := http.NewRequest("GET", "/auth/vk", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	conf := &RuntimeConfig{AuthConfig: MockAuthProviders()}
+	api := Api{Config: conf}
+
+	api.ServeHTTP(rr, req)
+	if status := rr.Code; status != http.StatusTemporaryRedirect {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusTemporaryRedirect)
+	}
+    resp := rr.Result()
+    redirect_url, err := url.Parse(resp.Header.Get("Location"))
+    if err != nil {
+        t.Errorf("Failed to parse url: %v", err)
+    }
+    if redirect_url.Host != "oauth.vk.com" {
+        t.Errorf("Invalid host in redirect url: got %v, expected oauth.vk.com",
+                 redirect_url.Host)
+    }
+
 }
