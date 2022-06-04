@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -20,8 +21,9 @@ func ShiftPath(p string) (head, tail string) {
 }
 
 type RuntimeConfig struct {
-	Datadir    string
-	AuthConfig AuthProviders
+	Datadir      string
+	AuthConfig   AuthProviders
+	ItemsPerPage int
 }
 
 type App struct {
@@ -42,6 +44,7 @@ func (h *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 type Api struct {
 	Config *RuntimeConfig
+	DB     *Database
 }
 
 type Summits struct {
@@ -55,6 +58,7 @@ func (h *Api) HandleSummits(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
+		return
 	}
 	summits, err := LoadSummits(h.Config.Datadir)
 	if err != nil {
@@ -69,7 +73,7 @@ func (h *Api) HandleSummits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	//w.Header().Set("Access-Control-Allow-Origin", "*")
 	fmt.Fprintf(w, string(resp))
 }
 
@@ -83,6 +87,46 @@ func (h *Api) HandleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Api) HandleTop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Only GET is allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	var page int
+	var err error
+	pageParam := r.URL.Query()["page"]
+	if pageParam == nil {
+		page = 1
+	} else if len(pageParam) != 1 {
+		http.Error(w, "Invalid page parameger provided", http.StatusBadRequest)
+		return
+	} else {
+		page, err = strconv.Atoi(pageParam[0])
+		if (err != nil) || (page <= 0) {
+			http.Error(w, "Invalid page parameter provided", http.StatusBadRequest)
+			return
+		}
+	}
+	top, err := FetchTop(h.DB, page, h.Config.ItemsPerPage)
+	if err != nil {
+		log.Printf("Error fetching top: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	resp, err := json.Marshal(top)
+	if err != nil {
+		log.Printf("Error marshalling top: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	//w.Header().Set("Access-Control-Allow-Origin", "*")
+	fmt.Fprintf(w, string(resp))
+}
 
 func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var head string
@@ -92,27 +136,32 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.HandleSummits(w, r)
 	case "auth":
 		h.HandleAuth(w, r)
+	case "top":
+		h.HandleTop(w, r)
 	default:
 		http.NotFound(w, r)
 	}
 }
 
 func main() {
-	if len(os.Args) != 3 {
-		log.Fatal("Usage: api <datadir> <ui_dir>")
+	if len(os.Args) != 4 {
+		log.Fatal("Usage: api <datadir> <ui_dir> <db_path>")
 	}
 	conf := &RuntimeConfig{
-		Datadir:    path.Clean(os.Args[1]),
-		AuthConfig: GetAuthProviders(),
+		Datadir:      path.Clean(os.Args[1]),
+		AuthConfig:   GetAuthProviders(),
+		ItemsPerPage: 20,
 	}
-	db, err := NewDatabase(":memory:")
+	db, err := NewDatabase(path.Clean(os.Args[3]))
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("Starting migrations...")
 	err = db.Migrate()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Migrations failed: %v", err)
 	}
-	app := &App{Api: &Api{Config: conf}, UIDir: os.Args[2]}
+	log.Printf("Migrations completed")
+	app := &App{Api: &Api{Config: conf, DB: db}, UIDir: os.Args[2]}
 	log.Fatal(http.ListenAndServe(":5000", app))
 }

@@ -1,16 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/vk"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-    "net/url"
+	"net/url"
+	"os"
+    "path/filepath"
 	"reflect"
 	"testing"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/vk"
 )
 
 func AreEqualJSON(s1, s2 string) (bool, error) {
@@ -39,26 +42,35 @@ func MockDatabase(t *testing.T) *Database {
 	if err != nil {
 		t.Fatal(err)
 	}
+	file, err := os.Open("testdata/mock-db.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		_, err := db.Pool.Exec(scanner.Text())
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	return db
 }
 
-
 func MockAuthProviders() AuthProviders {
-    providers := make(AuthProviders)
-    providers["vk"] = &oauth2.Config{
-	    RedirectURL:  "https://thousands.su/api/auth/authorized",
-	    ClientID:     "MOCK_VK_CLIENT_ID",
-	    ClientSecret: "MOCK_VK_CLIENT_SECRET",
-	    Scopes:       []string{},
-	    Endpoint:     vk.Endpoint,
-    }
-    return providers
+	providers := make(AuthProviders)
+	providers["vk"] = &oauth2.Config{
+		RedirectURL:  "https://thousands.su/api/auth/authorized",
+		ClientID:     "MOCK_VK_CLIENT_ID",
+		ClientSecret: "MOCK_VK_CLIENT_SECRET",
+		Scopes:       []string{},
+		Endpoint:     vk.Endpoint,
+	}
+	return providers
 }
 
-
 func TestSummitsHandler(t *testing.T) {
-	db := MockDatabase(t)
-	defer db.Pool.Close()
 
 	req, err := http.NewRequest("GET", "/summits", nil)
 	if err != nil {
@@ -96,6 +108,34 @@ func TestSummitsHandler(t *testing.T) {
 	}
 }
 
+func TestHandlersBadRequest(t *testing.T) {
+	var cases = []string{
+		"/top?page=0",
+		"/top?page=-1",
+		"/top?page=1&page=2",
+	}
+
+	for _, tt := range cases {
+
+		req, err := http.NewRequest("GET", tt, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rr := httptest.NewRecorder()
+
+		conf := &RuntimeConfig{Datadir: "testdata/summits"}
+		api := Api{Config: conf}
+
+		api.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != http.StatusBadRequest {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusBadRequest)
+		}
+	}
+}
+
 func TestAuthHandler(t *testing.T) {
 	req, err := http.NewRequest("GET", "/auth/vk", nil)
 	if err != nil {
@@ -112,14 +152,70 @@ func TestAuthHandler(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusTemporaryRedirect)
 	}
-    resp := rr.Result()
-    redirect_url, err := url.Parse(resp.Header.Get("Location"))
-    if err != nil {
-        t.Errorf("Failed to parse url: %v", err)
+	resp := rr.Result()
+	redirect_url, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil {
+		t.Errorf("Failed to parse url: %v", err)
+	}
+	if redirect_url.Host != "oauth.vk.com" {
+		t.Errorf("Invalid host in redirect url: got %v, expected oauth.vk.com",
+			redirect_url.Host)
+	}
+}
+
+func TestTopHandler(t *testing.T) {
+	db := MockDatabase(t)
+	defer db.Pool.Close()
+    cases := []struct {
+		url                string
+		expectedResultFile string
+	}{
+		{"/top", "top-1.json"},
+		{"/top?page=1", "top-1.json"},
+		{"/top?page=2", "top-2.json"},
+		{"/top?page=3", "top-3.json"},
+	}
+	conf := &RuntimeConfig{
+        AuthConfig: MockAuthProviders(),
+        ItemsPerPage: 5,
     }
-    if redirect_url.Host != "oauth.vk.com" {
-        t.Errorf("Invalid host in redirect url: got %v, expected oauth.vk.com",
-                 redirect_url.Host)
-    }
+	api := Api{Config: conf, DB: db}
+
+	for _, tt := range cases {
+
+		req, err := http.NewRequest("GET", tt.url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rr := httptest.NewRecorder()
+
+		api.ServeHTTP(rr, req)
+		res := rr.Result()
+		if status := res.StatusCode; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+		contentType := res.Header.Get("Content-Type")
+		if contentType != "application/json" {
+			t.Errorf("Wrong Content-Type header: got %v, expected application/json",
+				contentType)
+		}
+		expected, err := ioutil.ReadFile(
+			filepath.Join("testdata/responses", tt.expectedResultFile))
+		if err != nil {
+			t.Fatalf("Failed to read expected json data: %v", err)
+		}
+		expectedBody := string(expected)
+
+		areEqual, err := AreEqualJSON(expectedBody, rr.Body.String())
+		if err != nil {
+			fmt.Println("Error comparing response", err.Error())
+		}
+		if !areEqual {
+			t.Errorf("handler returned unexpected body: got %v want %v",
+				rr.Body.String(), expectedBody)
+		}
+	}
 
 }

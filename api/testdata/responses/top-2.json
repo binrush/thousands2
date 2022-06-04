@@ -1,0 +1,41 @@
+{
+    "items": [
+        {
+            "user_id": 1,
+            "user_name": "Kaitlin Cross",
+            "user_preview": "f449736178985df3a022d29eeb185b7b.jpg",
+            "climbs_num": 1,
+            "place": 6
+        },
+        {
+            "user_id": 2,
+            "user_name": "Steven Guzman",
+            "user_preview": "f0074deb666eb07e0c4a5d63c6dccf5c.jpg",
+            "climbs_num": 1,
+            "place": 7
+        },
+        {
+            "user_id": 4,
+            "user_name": "Sophia Gilbert",
+            "user_preview": "21d52dedbebec97570ca35f9f9556265.jpg",
+            "climbs_num": 1,
+            "place": 8
+        },
+        {
+            "user_id": 3,
+            "user_name": "Dr. Kevin Davenport Jr.",
+            "user_preview": "60f48484d5bfd1e87f2bf2e0c2a51fcf.jpg",
+            "climbs_num": 1,
+            "place": 9
+        },
+        {
+            "user_id": 8,
+            "user_name": "Cameron Smith",
+            "user_preview": "20b87937b4753605701351edc6494a98.jpg",
+            "climbs_num": 1,
+            "place": 10
+        }
+    ],
+    "page": 2,
+    "total_pages": 3
+}

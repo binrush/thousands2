@@ -21,21 +21,23 @@ var migrations []Migration = []Migration{
 	{
 		"Initial",
 		[]string{
-			"CREATE TABLE ridges (id TEXT, name TEXT, color TEXT, PRIMARY KEY (id))",
-			`CREATE TABLE summits (
-                id TEXT,
-                ridge_id TEXT,
-                name TEXT,
-                name_alt TEXT,
-                height INTEGER,
-                description TEXT,
-                interpretation TEXT,
-                lat REAL,
-                lon REAL,
-                PRIMARY_KEY (id),
-                FOREIGN KEY(ridge_id) REFERENCES ridges(id))
+			`CREATE TABLE users (
+                id INTEGER PRIMARY KEY, 
+                oauth_id TEXT NOT NULL, 
+                src INTEGER NOT NULL, 
+                name TEXT NOT NULL, 
+                image TEXT,
+                preview TEXT
+            )`,
+			`CREATE TABLE climbs (
+                user_id INTEGER NOT NULL, 
+                summit_id TEXT NOT NULL, 
+                year INTEGER, month INTEGER, day INTEGER, 
+                comment TEXT,
+                PRIMARY KEY (user_id, summit_id),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
             `,
-			"CREATE TABLE users (oauth_id TEXT, src TEXT, name TEXT, PRIMARY KEY (oauth_id, src))",
 		},
 	},
 }
@@ -68,7 +70,7 @@ func (db *Database) Migrate() error {
 			return err
 		}
 		// migration already applied
-		if cnt <= 0 {
+		if cnt > 0 {
 			continue
 		}
 		// Running migration
