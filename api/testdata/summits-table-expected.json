@@ -1,0 +1,32 @@
+{
+  "summmits": [
+    {
+      "id": "1021",
+      "name": "1021",
+      "height": 1021,
+      "ridge": "Столбы",
+      "visitors": 0
+    },
+    {
+      "id": "kirel",
+      "name": "Кирель",
+      "height": 1162,
+      "ridge": "Малидак",
+      "visitors": 6
+    },
+    {
+      "id": "kurkak",
+      "name": "Куркак",
+      "height": 1008,
+      "ridge": "Куркак",
+      "visitors": 10
+    },
+    {
+      "id": "malinovaja",
+      "name": "Малиновая",
+      "height": 1152,
+      "ridge": "Малидак",
+      "visitors": 2
+    }
+  ]
+}

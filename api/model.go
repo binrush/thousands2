@@ -1,12 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"strings"
+	"errors"
+	"fmt"
 )
 
 type Ridge struct {
@@ -17,13 +19,25 @@ type Ridge struct {
 
 type Summit struct {
 	Id             string     `json:"id"`
-	Name           string     `json:"name"`
-	AltName        string     `json:"alt_name"`
-	Interpretation string     `json:"interpretation"`
-	Description    string     `json:"description"`
+	Name           *string    `json:"name"`
+	AltName        *string    `json:"alt_name"`
+	Interpretation *string    `json:"interpretation"`
+	Description    *string    `json:"description"`
 	Height         int        `json:"height"`
 	Coordinates    [2]float32 `json:"coordinates"`
 	Ridge          *Ridge     `json:"ridge"`
+}
+
+type SummitsTableItem struct {
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	Height    int    `json:"height"`
+	RidgeName string `json:"ridge"`
+	Visitors  int    `json:"visitors"`
+}
+
+type SummitsTable struct {
+	Summits []SummitsTableItem `json:"summits"`
 }
 
 type TopItem struct {
@@ -40,11 +54,20 @@ type Top struct {
 	TotalPages int       `json:"total_pages"`
 }
 
-func LoadRidge(ridge *Ridge, dir string, result []Summit) ([]Summit, error) {
+func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 	summitDirs, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	summitsStmt, err := tx.Prepare(
+		`INSERT INTO summits 
+			(id, ridge_id, name, alt_name, interpretation, description, height, lat, lng)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	defer summitsStmt.Close()
+	if err != nil {
+		return err
+	}
+	summitsNum := 0
 	for _, summitDir := range summitDirs {
 		if !summitDir.IsDir() {
 			continue
@@ -56,27 +79,54 @@ func LoadRidge(ridge *Ridge, dir string, result []Summit) ([]Summit, error) {
 		summitPath := path.Join(dir, summitId)
 		summitData, err := ioutil.ReadFile(path.Join(summitPath, "meta.yaml"))
 		if err != nil {
-			log.Printf("Failed to load summit metadata: %v", err)
-			continue
+			return err
 		}
 		var summit Summit
 		err = yaml.Unmarshal(summitData, &summit)
 		if err != nil {
-			log.Printf("Failed to parse summit metadata: %v", err)
-			continue
+			return err
 		}
 		summit.Id = summitId
-		summit.Ridge = ridge
-		result = append(result, summit)
+		_, err = summitsStmt.Exec(
+			summit.Id, ridgeId, summit.Name, summit.AltName,
+			summit.Interpretation, summit.Description,
+			summit.Height, summit.Coordinates[0], summit.Coordinates[1])
+		if err != nil {
+			return err
+		}
+		summitsNum += 1
 	}
-	return result, nil
+	if summitsNum <= 0 {
+		return errors.New(fmt.Sprintf("Error: empty ridges are not allowed: %s", ridgeId))
+	}
+	return nil
 }
 
-func LoadSummits(dataDir string) ([]Summit, error) {
-	result := make([]Summit, 0, 300)
+func LoadSummits(dataDir string, db *Database) error {
+	tx, err := db.Pool.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	cleanupQueries := []string{
+		"DELETE FROM summits",
+		"DELETE FROM ridges",
+	}
+	for _, sql := range cleanupQueries {
+		_, err = tx.Exec(sql)
+		if err != nil {
+			return err
+		}
+	}
+	ridgeStmt, err := tx.Prepare("INSERT INTO ridges VALUES (?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer ridgeStmt.Close()
+
 	ridgeDirs, err := os.ReadDir(dataDir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, ridgeDir := range ridgeDirs {
 		if !ridgeDir.IsDir() {
@@ -89,24 +139,49 @@ func LoadSummits(dataDir string) ([]Summit, error) {
 		ridgePath := path.Join(dataDir, ridgeId)
 		ridgeData, err := ioutil.ReadFile(path.Join(ridgePath, "meta.yaml"))
 		if err != nil {
-			log.Printf("Failed to load ridge metadata: %v", err)
-			continue
+			return err
 		}
 		var ridge Ridge
-		err = yaml.Unmarshal(ridgeData, &ridge)
-		if err != nil {
-			log.Printf("Failed to parse ridge metadata: %v", err)
-			continue
+		if err := yaml.Unmarshal(ridgeData, &ridge); err != nil {
+			return err
 		}
 		ridge.Id = ridgeId
-		newResult, err := LoadRidge(&ridge, ridgePath, result)
+		_, err = ridgeStmt.Exec(ridge.Id, ridge.Name, ridge.Color)
 		if err != nil {
-			log.Printf("Failed to load from ridge dir : %v", err)
-			continue
+			return err
 		}
-		result = newResult
+
+		if err = LoadRidge(ridgePath, ridge.Id, tx); err != nil {
+			return err
+		}
 	}
-	return result, nil
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func FetchSummitsTable(db *Database) (*SummitsTable, error) {
+	summits := make([]SummitsTableItem, 0)
+	sql := `SELECT s.id, COALESCE(s.name, s.height), s.height, r.name, COUNT(c.user_id)
+		FROM ridges r 
+			INNER JOIN summits s ON r.id = s.ridge_id
+			LEFT JOIN climbs c ON c.summit_id = s.id
+		GROUP BY s.id, s.name, s.height
+	`
+	rows, err := db.Pool.Query(sql)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var s SummitsTableItem
+		if err := rows.Scan(&s.Id, &s.Name, &s.Height, &s.RidgeName, &s.Visitors); err != nil {
+			return nil, err
+		}
+		summits = append(summits, s)
+	}
+	return &SummitsTable{summits}, nil
 }
 
 func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {

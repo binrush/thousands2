@@ -11,7 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-    "path/filepath"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -70,17 +70,24 @@ func MockAuthProviders() AuthProviders {
 	return providers
 }
 
-func TestSummitsHandler(t *testing.T) {
+func TestSummitsTableHandler(t *testing.T) {
+	db := MockDatabase(t)
+	conf := &RuntimeConfig{Datadir: "testdata/summits"}
 
-	req, err := http.NewRequest("GET", "/summits", nil)
+	if err := LoadSummits(conf.Datadir, db); err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	req, err := http.NewRequest("GET", "/summits/table", nil)
 	if err != nil {
 		t.Fatal(err)
+		return
 	}
 
 	rr := httptest.NewRecorder()
 
-	conf := &RuntimeConfig{Datadir: "testdata/summits"}
-	api := Api{Config: conf}
+	api := Api{Config: conf, DB: db}
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -90,17 +97,20 @@ func TestSummitsHandler(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
+		return
 	}
 
 	// Check the response body is what we expect.
-	expected, err := ioutil.ReadFile("testdata/summits-expected.json")
+	expected, err := ioutil.ReadFile("testdata/summits-table-expected.json")
 	if err != nil {
 		t.Errorf("Failed to read expected json data: %v", err)
+		return
 	}
 	expected_str := string(expected)
 	areEqual, err := AreEqualJSON(expected_str, rr.Body.String())
 	if err != nil {
 		fmt.Println("Error comparing response", err.Error())
+		return
 	}
 	if !areEqual {
 		t.Errorf("handler returned unexpected body: got %v want %v",
@@ -137,36 +147,42 @@ func TestHandlersBadRequest(t *testing.T) {
 }
 
 func TestAuthHandler(t *testing.T) {
-	req, err := http.NewRequest("GET", "/auth/vk", nil)
+	req, err := http.NewRequest("GET", "/oauth/vk", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
 
-	conf := &RuntimeConfig{AuthConfig: MockAuthProviders()}
-	api := Api{Config: conf}
+	as := AuthServer{Providers: MockAuthProviders()}
 
-	api.ServeHTTP(rr, req)
+	as.ServeHTTP(rr, req)
 	if status := rr.Code; status != http.StatusTemporaryRedirect {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusTemporaryRedirect)
 	}
 	resp := rr.Result()
-	redirect_url, err := url.Parse(resp.Header.Get("Location"))
+	redirectUrl, err := url.Parse(resp.Header.Get("Location"))
 	if err != nil {
 		t.Errorf("Failed to parse url: %v", err)
 	}
-	if redirect_url.Host != "oauth.vk.com" {
+	if redirectUrl.Host != "oauth.vk.com" {
 		t.Errorf("Invalid host in redirect url: got %v, expected oauth.vk.com",
-			redirect_url.Host)
+			redirectUrl.Host)
 	}
+	//	query := redirectUrl.Query()
+	//	expectedQuery := map[string][]string{
+	//		"response_type": []string{"code"},
+	//	}
+	//	if ! reflect.DeepEqual(query, expectedQuery) {
+	//		t.Fatalf("Unexpected query params: %v, expected %v", query, expectedQuery)
+	//	}
 }
 
 func TestTopHandler(t *testing.T) {
 	db := MockDatabase(t)
 	defer db.Pool.Close()
-    cases := []struct {
+	cases := []struct {
 		url                string
 		expectedResultFile string
 	}{
@@ -176,9 +192,8 @@ func TestTopHandler(t *testing.T) {
 		{"/top?page=3", "top-3.json"},
 	}
 	conf := &RuntimeConfig{
-        AuthConfig: MockAuthProviders(),
-        ItemsPerPage: 5,
-    }
+		ItemsPerPage: 5,
+	}
 	api := Api{Config: conf, DB: db}
 
 	for _, tt := range cases {

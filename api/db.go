@@ -38,6 +38,22 @@ var migrations []Migration = []Migration{
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
             `,
+			`CREATE TABLE ridges (
+				id TEXT NOT NULL PRIMARY KEY,
+				name TEXT NOT NULL,
+				color TEXT NOT NULL
+			)`,
+			`CREATE TABLE summits (
+				id TEXT NOT NULL PRIMARY KEY,
+				ridge_id TEXT NOT NULL,
+				name TEXT,
+				alt_name TEXT,
+				interpretation TEXT,
+				description TEXT,
+				height INTEGER NOT NULL,
+				lat REAL NOT NULL,
+				lng REAL NOT NULL
+			)`,
 		},
 	},
 }
