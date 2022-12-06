@@ -1,10 +1,11 @@
 {
-  "summmits": [
+  "summits": [
     {
       "id": "1021",
-      "name": "1021",
+      "name": null,
       "height": 1021,
       "ridge": "Столбы",
+	  "lat": 54.18697,
       "visitors": 0
     },
     {
@@ -12,6 +13,7 @@
       "name": "Кирель",
       "height": 1162,
       "ridge": "Малидак",
+	  "lat": 54.028606,
       "visitors": 6
     },
     {
@@ -19,6 +21,7 @@
       "name": "Куркак",
       "height": 1008,
       "ridge": "Куркак",
+	  "lat": 53.801395,
       "visitors": 10
     },
     {
@@ -26,6 +29,7 @@
       "name": "Малиновая",
       "height": 1152,
       "ridge": "Малидак",
+	  "lat": 54.02063,
       "visitors": 2
     }
   ]

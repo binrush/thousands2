@@ -2,13 +2,13 @@ package main
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
-	"errors"
-	"fmt"
 )
 
 type Ridge struct {
@@ -29,11 +29,13 @@ type Summit struct {
 }
 
 type SummitsTableItem struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	Height    int    `json:"height"`
-	RidgeName string `json:"ridge"`
-	Visitors  int    `json:"visitors"`
+	Id     string  `json:"id"`
+	Name   *string `json:"name"`
+	Height int     `json:"height"`
+	// Latitude is needed for sorting
+	Lat       float32 `json:"lat"`
+	RidgeName string  `json:"ridge"`
+	Visitors  int     `json:"visitors"`
 }
 
 type SummitsTable struct {
@@ -163,11 +165,11 @@ func LoadSummits(dataDir string, db *Database) error {
 
 func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 	summits := make([]SummitsTableItem, 0)
-	sql := `SELECT s.id, COALESCE(s.name, s.height), s.height, r.name, COUNT(c.user_id)
+	sql := `SELECT s.id, s.name, s.height, s.lat, r.name, COUNT(c.user_id)
 		FROM ridges r 
 			INNER JOIN summits s ON r.id = s.ridge_id
 			LEFT JOIN climbs c ON c.summit_id = s.id
-		GROUP BY s.id, s.name, s.height
+		GROUP BY s.id, s.name, s.height, s.lat, r.name
 	`
 	rows, err := db.Pool.Query(sql)
 	if err != nil {
@@ -176,7 +178,7 @@ func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var s SummitsTableItem
-		if err := rows.Scan(&s.Id, &s.Name, &s.Height, &s.RidgeName, &s.Visitors); err != nil {
+		if err := rows.Scan(&s.Id, &s.Name, &s.Height, &s.Lat, &s.RidgeName, &s.Visitors); err != nil {
 			return nil, err
 		}
 		summits = append(summits, s)
