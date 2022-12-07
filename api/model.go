@@ -29,13 +29,15 @@ type Summit struct {
 }
 
 type SummitsTableItem struct {
-	Id     string  `json:"id"`
-	Name   *string `json:"name"`
-	Height int     `json:"height"`
+	Id      string  `json:"id"`
+	Name    *string `json:"name"`
+	Height  int     `json:"height"`
 	// Latitude is needed for sorting
 	Lat       float32 `json:"lat"`
 	RidgeName string  `json:"ridge"`
 	Visitors  int     `json:"visitors"`
+	Rank      int     `json:"rank"`
+	IsMain    bool    `json:"is_main"`
 }
 
 type SummitsTable struct {
@@ -165,11 +167,25 @@ func LoadSummits(dataDir string, db *Database) error {
 
 func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 	summits := make([]SummitsTableItem, 0)
-	sql := `SELECT s.id, s.name, s.height, s.lat, r.name, COUNT(c.user_id)
+	sql := `SELECT s.id, s.name, s.height, s.lat, r.name, COUNT(c.user_id), 
+			ROW_NUMBER() OVER (ORDER BY s.height DESC) as rank,
+			EXISTS(
+				SELECT * FROM 
+					(
+						SELECT ridge_id, max(height) AS maxheight
+						FROM summits
+						WHERE ridge_id=s.ridge_id GROUP BY ridge_id
+					) as smtsg
+					INNER JOIN summits smts
+						ON smtsg.ridge_id=smts.ridge_id
+						AND smts.height=smtsg.maxheight 
+					WHERE id=s.id
+			) AS is_main
 		FROM ridges r 
 			INNER JOIN summits s ON r.id = s.ridge_id
 			LEFT JOIN climbs c ON c.summit_id = s.id
 		GROUP BY s.id, s.name, s.height, s.lat, r.name
+		ORDER BY s.id
 	`
 	rows, err := db.Pool.Query(sql)
 	if err != nil {
@@ -178,7 +194,11 @@ func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var s SummitsTableItem
-		if err := rows.Scan(&s.Id, &s.Name, &s.Height, &s.Lat, &s.RidgeName, &s.Visitors); err != nil {
+		err := rows.Scan(
+			&s.Id, &s.Name, &s.Height, &s.Lat,
+			&s.RidgeName, &s.Visitors, &s.Rank, &s.IsMain,
+		)
+		if err != nil {
 			return nil, err
 		}
 		summits = append(summits, s)

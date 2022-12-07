@@ -5,32 +5,40 @@
       "name": null,
       "height": 1021,
       "ridge": "Столбы",
-	  "lat": 54.18697,
-      "visitors": 0
+      "lat": 54.18697,
+      "visitors": 0,
+      "rank": 3,
+      "is_main": true
     },
     {
       "id": "kirel",
       "name": "Кирель",
       "height": 1162,
       "ridge": "Малидак",
-	  "lat": 54.028606,
-      "visitors": 6
+      "lat": 54.028606,
+      "visitors": 6,
+      "rank": 1,
+      "is_main": true
     },
     {
       "id": "kurkak",
       "name": "Куркак",
       "height": 1008,
       "ridge": "Куркак",
-	  "lat": 53.801395,
-      "visitors": 10
+      "lat": 53.801395,
+      "visitors": 10,
+      "rank": 4,
+      "is_main": true
     },
     {
       "id": "malinovaja",
       "name": "Малиновая",
       "height": 1152,
       "ridge": "Малидак",
-	  "lat": 54.02063,
-      "visitors": 2
+      "lat": 54.02063,
+      "visitors": 2,
+      "rank": 2,
+      "is_main": false
     }
   ]
 }

@@ -99,8 +99,8 @@ watch(
 <template>
   <h1 class="text-xl font-bold">Все вершины Южного Урала выше тысячи метров</h1>
   <form>
-  <input class="border my-1" type="text" v-model="search" placeholder="Поиск">
-  <input type="button" value="X" @click="resetSearch">
+    <input class="border my-1" type="text" v-model="search" placeholder="Поиск">
+    <input type="button" value="X" @click="resetSearch">
   </form>
   <table class="table-auto">
       <thead>
@@ -112,8 +112,13 @@ watch(
       </tr>
       </thead>
       <tr v-for="summit in filteredSummits">
-          <td class="border">{{ summit.name ? summit.name : summit.height}}</td>
-          <td class="border">{{ summit.height }}</td>
+          <td class="border" :class="{ 'font-bold': summit.is_main }">
+              {{ summit.name ? summit.name : summit.height}}
+          </td>
+          <td class="border">
+              <span :class="{ 'font-bold': summit.is_main }">{{ summit.height }}</span>
+              <span class="text-xs ml-1">{{ summit.rank }}</span>
+          </td>
           <td class="border">{{ summit.ridge }}</td>
           <td class="border">{{ summit.visitors }}</td>
       </tr>
