@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 
 const summits = ref(null)
 const sort_col = ref("ridge")
+const search = ref('')
 
 const router = useRouter()
 const route = useRoute()
@@ -13,7 +14,11 @@ async function loadSummits() {
     summits.value = (await res.json()).summits
 }
 
-function update_sort(e) {
+function resetSearch(e) {
+    search.value = ''
+}
+
+function updateSort(e) {
     router.push({ name: "summits", query: {sort: e} })
 }
 
@@ -58,22 +63,23 @@ const filteredSummits = computed(() => {
     if (summits.value === null) {
         return []
     }
+    let result = summits.value.filter((s) => {
+        let searchStr = search.value.trim().toLowerCase()
+        return (s.name !== null && s.name.toLowerCase().includes(searchStr) ||
+            s.ridge.toLowerCase().includes(searchStr)
+        )
+    })
     if (sort_col.value === "ridge") {
-        summits.value.sort(sort_by_ridge)
+        result.sort(sort_by_ridge)
     }
     if (["height", "visitors"].includes(sort_col.value)) {
-        summits.value.sort((a, b) => b[sort_col.value] - a[sort_col.value])
+        result.sort((a, b) => b[sort_col.value] - a[sort_col.value])
     }
     if (sort_col.value === "name") {
-        summits.value.sort(sort_by_name)
+        result.sort(sort_by_name)
     }
    
-    return summits.value.map(function (o) {
-        // replace name with height if name does not exist
-        let summit = JSON.parse(JSON.stringify(o))
-        summit.name = o.name !== null ? o.name : o.height.toString()
-        return summit
-    })
+    return result
 })
 
 onMounted(function () {
@@ -92,17 +98,21 @@ watch(
 
 <template>
   <h1 class="text-xl font-bold">Все вершины Южного Урала выше тысячи метров</h1>
+  <form>
+  <input class="border my-1" type="text" v-model="search" placeholder="Поиск">
+  <input type="button" value="X" @click="resetSearch">
+  </form>
   <table class="table-auto">
       <thead>
       <tr>
-          <th class="border" @click="update_sort('name')">Название</th>
-          <th class="border" @click="update_sort('height')">Высота</th>
-          <th class="border" @click="update_sort('ridge')">Хребет</th>
-          <th class="border" @click="update_sort('visitors')">Восходителей</th>
+          <th class="border" @click="updateSort('name')">Название</th>
+          <th class="border" @click="updateSort('height')">Высота</th>
+          <th class="border" @click="updateSort('ridge')">Хребет</th>
+          <th class="border" @click="updateSort('visitors')">Восходителей</th>
       </tr>
       </thead>
       <tr v-for="summit in filteredSummits">
-          <td class="border">{{ summit.name }}</td>
+          <td class="border">{{ summit.name ? summit.name : summit.height}}</td>
           <td class="border">{{ summit.height }}</td>
           <td class="border">{{ summit.ridge }}</td>
           <td class="border">{{ summit.visitors }}</td>
