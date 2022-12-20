@@ -113,7 +113,10 @@ watch(
       </thead>
       <tr v-for="summit in filteredSummits">
           <td class="border" :class="{ 'font-bold': summit.is_main }">
-              {{ summit.name ? summit.name : summit.height}}
+              <!-- <router-link :to="{ name: 'summit', params: { ridge_id: summit.ridge_id, summit_id: summit.id}"> -->
+              <router-link :to="{ name: 'summit', params: { ridge_id: summit.ridge_id, summit_id: summit.id}}">
+                {{ summit.name ? summit.name : summit.height}}
+              </router-link>
           </td>
           <td class="border">
               <span :class="{ 'font-bold': summit.is_main }">{{ summit.height }}</span>

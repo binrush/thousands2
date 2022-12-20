@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v2"
@@ -17,24 +19,42 @@ type Ridge struct {
 	Color string `json:"color"`
 }
 
+type SummitImage struct {
+	Filename string `json:"filename"`
+	Comment  string `json:"comment"`
+}
+
 type Summit struct {
-	Id             string     `json:"id"`
-	Name           *string    `json:"name"`
-	AltName        *string    `json:"alt_name"`
-	Interpretation *string    `json:"interpretation"`
-	Description    *string    `json:"description"`
-	Height         int        `json:"height"`
-	Coordinates    [2]float32 `json:"coordinates"`
-	Ridge          *Ridge     `json:"ridge"`
+	Id             string        `json:"id"`
+	Name           *string       `json:"name"`
+	NameAlt        *string       `json:"name_alt" yaml:"name_alt"`
+	Interpretation *string       `json:"interpretation"`
+	Description    *string       `json:"description"`
+	Height         int           `json:"height"`
+	Coordinates    [2]float32    `json:"coordinates"`
+	Ridge          *Ridge        `json:"ridge"`
+	Images         []SummitImage `json:"images"`
+}
+
+func (s *Summit) JSON() ([]byte, error) {
+	// FIXME: use markdown instead of HTML
+	// for summits description to avoid
+	// using this custom encoder
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(s)
+	return buffer.Bytes(), err
 }
 
 type SummitsTableItem struct {
-	Id      string  `json:"id"`
-	Name    *string `json:"name"`
-	Height  int     `json:"height"`
+	Id     string  `json:"id"`
+	Name   *string `json:"name"`
+	Height int     `json:"height"`
 	// Latitude is needed for sorting
 	Lat       float32 `json:"lat"`
 	RidgeName string  `json:"ridge"`
+	RidgeId   string  `json:"ridge_id"`
 	Visitors  int     `json:"visitors"`
 	Rank      int     `json:"rank"`
 	IsMain    bool    `json:"is_main"`
@@ -58,6 +78,23 @@ type Top struct {
 	TotalPages int       `json:"total_pages"`
 }
 
+func LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {
+	imageStmt, err := tx.Prepare(
+		`INSERT INTO summit_images 
+			(filename, summit_id, comment) VALUES (?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer imageStmt.Close()
+	for _, img := range images {
+		_, err = imageStmt.Exec(img.Filename, summitId, img.Comment)
+		if err != nil {
+			return fmt.Errorf("Failed to load image %s: %v", img.Filename, err)
+		}
+	}
+	return nil
+}
+
 func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 	summitDirs, err := os.ReadDir(dir)
 	if err != nil {
@@ -65,12 +102,12 @@ func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 	}
 	summitsStmt, err := tx.Prepare(
 		`INSERT INTO summits 
-			(id, ridge_id, name, alt_name, interpretation, description, height, lat, lng)
+			(id, ridge_id, name, name_alt, interpretation, description, height, lat, lng)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-	defer summitsStmt.Close()
 	if err != nil {
 		return err
 	}
+	defer summitsStmt.Close()
 	summitsNum := 0
 	for _, summitDir := range summitDirs {
 		if !summitDir.IsDir() {
@@ -92,11 +129,17 @@ func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 		}
 		summit.Id = summitId
 		_, err = summitsStmt.Exec(
-			summit.Id, ridgeId, summit.Name, summit.AltName,
+			summit.Id, ridgeId, summit.Name, summit.NameAlt,
 			summit.Interpretation, summit.Description,
 			summit.Height, summit.Coordinates[0], summit.Coordinates[1])
 		if err != nil {
 			return err
+		}
+		if len(summit.Images) > 0 {
+			err = LoadSummitImages(summit.Images, summit.Id, tx)
+			if err != nil {
+				return err
+			}
 		}
 		summitsNum += 1
 	}
@@ -113,6 +156,7 @@ func LoadSummits(dataDir string, db *Database) error {
 	}
 	defer tx.Rollback()
 	cleanupQueries := []string{
+		"DELETE FROM summit_images",
 		"DELETE FROM summits",
 		"DELETE FROM ridges",
 	}
@@ -167,7 +211,7 @@ func LoadSummits(dataDir string, db *Database) error {
 
 func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 	summits := make([]SummitsTableItem, 0)
-	sql := `SELECT s.id, s.name, s.height, s.lat, r.name, COUNT(c.user_id), 
+	query := `SELECT s.id, s.name, s.height, s.lat, r.name, r.id, COUNT(c.user_id), 
 			ROW_NUMBER() OVER (ORDER BY s.height DESC) as rank,
 			EXISTS(
 				SELECT * FROM 
@@ -187,7 +231,7 @@ func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 		GROUP BY s.id, s.name, s.height, s.lat, r.name
 		ORDER BY s.id
 	`
-	rows, err := db.Pool.Query(sql)
+	rows, err := db.Pool.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +240,7 @@ func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 		var s SummitsTableItem
 		err := rows.Scan(
 			&s.Id, &s.Name, &s.Height, &s.Lat,
-			&s.RidgeName, &s.Visitors, &s.Rank, &s.IsMain,
+			&s.RidgeName, &s.RidgeId, &s.Visitors, &s.Rank, &s.IsMain,
 		)
 		if err != nil {
 			return nil, err
@@ -206,24 +250,62 @@ func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 	return &SummitsTable{summits}, nil
 }
 
+func FetchSummitImages(summit *Summit) error {
+	return nil
+}
+
+func FetchSummit(db *Database, ridgeId, summitId string) (*Summit, error) {
+	var summit Summit
+	var ridge Ridge
+	summit.Name = new(string)
+	summit.NameAlt = new(string)
+	summit.Images = make([]SummitImage, 0)
+	summit.Ridge = &ridge
+	summit.Coordinates = [2]float32{}
+
+	query := `SELECT
+		s.id, s.name, s.name_alt, s.interpretation, s.description, s.height, s.lat, s.lng,
+		r.id, r.name, r.color
+	FROM summits s INNER JOIN ridges r ON s.ridge_id = r.id
+	WHERE r.id = ? AND s.id = ?
+	`
+	err := db.Pool.QueryRow(query, ridgeId, summitId).Scan(&summit.Id,
+		&summit.Name, &summit.NameAlt, &summit.Interpretation,
+		&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
+		&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil // summit not found
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	err = FetchSummitImages(&summit)
+	if err != nil {
+		return nil, err
+	}
+	return &summit, nil
+}
+
 func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
 	var result Top
 	result.Page = page
 	tx, err := db.Pool.Begin()
 	defer tx.Commit()
-	sql := `SELECT COUNT(DISTINCT user_id) 
+	query := `SELECT COUNT(DISTINCT user_id) 
         FROM users INNER JOIN climbs ON users.id=climbs.user_id`
 	if err != nil {
 		return nil, err
 	}
 	var totalItems int
-	err = tx.QueryRow(sql).Scan(&totalItems)
+	err = tx.QueryRow(query).Scan(&totalItems)
 	if err != nil {
 		return nil, err
 	}
 	result.TotalPages = totalItems/itemsPerPage + 1
 	result.Items = make([]TopItem, 0)
-	sql = `SELECT users.id, users.name, users.preview, 
+	query = `SELECT users.id, users.name, users.preview, 
             count(*) as climbs, 
             MAX(coalesce(day, 32) | (coalesce(month, 13) << 8) | (coalesce(year, 2100) << 16)) 
                 AS last_climb 
@@ -232,7 +314,7 @@ func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
         ORDER BY climbs DESC, last_climb ASC 
         LIMIT ? OFFSET ?`
 	offset := (page - 1) * itemsPerPage
-	rows, err := tx.Query(sql, itemsPerPage, offset)
+	rows, err := tx.Query(query, itemsPerPage, offset)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"sync"
@@ -36,8 +37,7 @@ var migrations []Migration = []Migration{
                 comment TEXT,
                 PRIMARY KEY (user_id, summit_id),
                 FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-            `,
+            )`,
 			`CREATE TABLE ridges (
 				id TEXT NOT NULL PRIMARY KEY,
 				name TEXT NOT NULL,
@@ -47,12 +47,19 @@ var migrations []Migration = []Migration{
 				id TEXT NOT NULL PRIMARY KEY,
 				ridge_id TEXT NOT NULL,
 				name TEXT,
-				alt_name TEXT,
+				name_alt TEXT,
 				interpretation TEXT,
 				description TEXT,
 				height INTEGER NOT NULL,
 				lat REAL NOT NULL,
-				lng REAL NOT NULL
+				lng REAL NOT NULL,
+				FOREIGN KEY (ridge_id) REFERENCES ridges(id)
+			)`,
+			`CREATE TABLE summit_images (
+				filename TEXT PRIMARY KEY,
+				summit_id TEXT NOT NULL,
+				comment TEXT NOT NULL,
+				FOREIGN KEY (summit_id) REFERENCES summits(id)
 			)`,
 		},
 	},
@@ -103,7 +110,7 @@ func (db *Database) Migrate() error {
 					// log rollback error
 					log.Printf("Rollback failed: %v\n", rollbackErr)
 				}
-				return err
+				return fmt.Errorf("Statement %s failed with error: %v", stmt, err)
 			}
 		}
 		stmt = "INSERT INTO _migrations VALUES (?)"

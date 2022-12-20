@@ -1,0 +1,18 @@
+{
+  "id": "kirel",
+  "name": "Кирель",
+  "name_alt": null,
+  "interpretation": "<b>Кыр</b> (баш.) &mdash; лес",
+  "description": "Лесистая с очень крутыми склонами, курумов мало.",
+  "height": 1162,
+  "coordinates": [
+    54.028606,
+    58.23114
+  ],
+  "ridge": {
+    "id": "malidak",
+    "name": "Малидак",
+    "color": "7a8a79"
+  },
+  "images": []
+}

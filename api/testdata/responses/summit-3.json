@@ -1,0 +1,18 @@
+{
+  "id": "malinovaja",
+  "name": "Малиновая",
+  "name_alt": "Малиновка, Елэкташ",
+  "interpretation": "Обилие ягод (малины).\r\n<strong>Элэкташ</strong> (баш.) &mdash; ягодный камень.",
+  "description": "Группа скал, расположенных дугой",
+  "height": 1152,
+  "coordinates": [
+    54.02063,
+    58.291515
+  ],
+  "ridge": {
+    "id": "malidak",
+    "name": "Малидак",
+    "color": "7a8a79"
+  },
+  "images": []
+}

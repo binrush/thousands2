@@ -118,16 +118,68 @@ func TestSummitsTableHandler(t *testing.T) {
 	}
 }
 
-func TestHandlersBadRequest(t *testing.T) {
-	var cases = []string{
-		"/top?page=0",
-		"/top?page=-1",
-		"/top?page=1&page=2",
+/*func TestSummitHandler(t *testing.T) {
+	db := MockDatabase(t)
+	conf := &RuntimeConfig{Datadir: "testdata/summits"}
+
+	if err := LoadSummits(conf.Datadir, db); err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	req, err := http.NewRequest("GET", "/summit/malidak/kirel", nil)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	rr := httptest.NewRecorder()
+
+	api := Api{Config: conf, DB: db}
+
+	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
+	// directly and pass in our Request and ResponseRecorder.
+	api.ServeHTTP(rr, req)
+
+	// Check the status code is what we expect.
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+		return
+	}
+	expected, err := ioutil.ReadFile("testdata/summit-expected0.json")
+	if err != nil {
+		t.Errorf("Failed to read expected json data: %v", err)
+		return
+	}
+	expected_str := string(expected)
+	areEqual, err := AreEqualJSON(expected_str, rr.Body.String())
+	if err != nil {
+		fmt.Println("Error comparing response", err.Error())
+		return
+	}
+	if !areEqual {
+		t.Errorf("handler returned unexpected body: got %v want %v",
+			rr.Body.String(), expected_str)
+	}
+}*/
+
+func TestHandlersClientErrors(t *testing.T) {
+	var cases = []struct {
+		url          string
+		expectedCode int
+	}{
+		{"/top?page=0", http.StatusBadRequest},
+		{"/top?page=-1", http.StatusBadRequest},
+		{"/top?page=1&page=2", http.StatusBadRequest},
+		{"/summit", http.StatusNotFound},
+		{"/summit/kyrel", http.StatusNotFound},
+		{"/summit/malidak/kyrel/1", http.StatusNotFound},
 	}
 
 	for _, tt := range cases {
 
-		req, err := http.NewRequest("GET", tt, nil)
+		req, err := http.NewRequest("GET", tt.url, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -139,7 +191,7 @@ func TestHandlersBadRequest(t *testing.T) {
 
 		api.ServeHTTP(rr, req)
 
-		if status := rr.Code; status != http.StatusBadRequest {
+		if status := rr.Code; status != tt.expectedCode {
 			t.Errorf("handler returned wrong status code: got %v want %v",
 				status, http.StatusBadRequest)
 		}
@@ -179,9 +231,7 @@ func TestAuthHandler(t *testing.T) {
 	//	}
 }
 
-func TestTopHandler(t *testing.T) {
-	db := MockDatabase(t)
-	defer db.Pool.Close()
+func TestHandlersHappyPath(t *testing.T) {
 	cases := []struct {
 		url                string
 		expectedResultFile string
@@ -190,10 +240,22 @@ func TestTopHandler(t *testing.T) {
 		{"/top?page=1", "top-1.json"},
 		{"/top?page=2", "top-2.json"},
 		{"/top?page=3", "top-3.json"},
+		{"/summit/malidak/kirel", "summit-1.json"},
+		{"/summit/stolby/1021", "summit-2.json"},
+		{"/summit/malidak/malinovaja", "summit-3.json"},
 	}
+	db := MockDatabase(t)
+	defer db.Pool.Close()
 	conf := &RuntimeConfig{
+		Datadir:      "testdata/summits",
 		ItemsPerPage: 5,
 	}
+
+	if err := LoadSummits(conf.Datadir, db); err != nil {
+		t.Fatal(err)
+		return
+	}
+
 	api := Api{Config: conf, DB: db}
 
 	for _, tt := range cases {
@@ -208,28 +270,33 @@ func TestTopHandler(t *testing.T) {
 		api.ServeHTTP(rr, req)
 		res := rr.Result()
 		if status := res.StatusCode; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
+			t.Errorf("handler returned wrong status code for url %s: got %v want %v.",
+				tt.url, status, http.StatusOK)
+			continue
 		}
 		contentType := res.Header.Get("Content-Type")
 		if contentType != "application/json" {
-			t.Errorf("Wrong Content-Type header: got %v, expected application/json",
-				contentType)
+			t.Errorf("Wrong Content-Type header returned for url %s: got %v, expected application/json",
+				tt.url, contentType)
+			continue
 		}
 		expected, err := ioutil.ReadFile(
 			filepath.Join("testdata/responses", tt.expectedResultFile))
 		if err != nil {
-			t.Fatalf("Failed to read expected json data: %v", err)
+			t.Errorf("Failed to read expected json data from %s: %v",
+				tt.expectedResultFile, err)
+			continue
 		}
 		expectedBody := string(expected)
 
 		areEqual, err := AreEqualJSON(expectedBody, rr.Body.String())
 		if err != nil {
-			fmt.Println("Error comparing response", err.Error())
+			t.Errorf("Error comparing response: %v", err)
 		}
 		if !areEqual {
-			t.Errorf("handler returned unexpected body: got %v want %v",
-				rr.Body.String(), expectedBody)
+			t.Errorf("handler returned unexpected body for url %s: got %v want %v",
+				tt.url, rr.Body.String(), expectedBody)
+			continue
 		}
 	}
 

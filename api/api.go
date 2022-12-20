@@ -8,8 +8,6 @@ import (
 	"strconv"
 )
 
-
-
 type Api struct {
 	Config *RuntimeConfig
 	DB     *Database
@@ -24,6 +22,48 @@ func (h *Api) HandleSummits(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func (h *Api) HandleSummit(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	var ridgeId, summitId string
+	ridgeId, r.URL.Path = ShiftPath(r.URL.Path)
+	if r.URL.Path == "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	summitId, r.URL.Path = ShiftPath(r.URL.Path)
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	summit, err := FetchSummit(h.DB, ridgeId, summitId)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+    if summit == nil { // summit not found
+		log.Printf("Summit %s/%s not found", ridgeId, summitId)
+        http.NotFound(w, r)
+        return
+    }
+	resp, err := summit.JSON()
+	if err != nil {
+		log.Printf("Error: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	fmt.Fprintf(w, string(resp))
 }
 
 func (h *Api) HandleSummitsTable(w http.ResponseWriter, r *http.Request) {
@@ -97,6 +137,8 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var head string
 	head, r.URL.Path = ShiftPath(r.URL.Path)
 	switch head {
+	case "summit":
+		h.HandleSummit(w, r)
 	case "summits":
 		h.HandleSummits(w, r)
 	case "top":
@@ -105,5 +147,3 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 	}
 }
-
-
