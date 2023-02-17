@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 type Ridge struct {
@@ -76,6 +77,15 @@ type Top struct {
 	Items      []TopItem `json:"items"`
 	Page       int       `json:"page"`
 	TotalPages int       `json:"total_pages"`
+}
+
+type User struct {
+	Id      int64
+	OauthId string
+	Src     int
+	Name    string
+	Image   string
+	Preview string
 }
 
 func LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {
@@ -332,4 +342,34 @@ func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
 		i++
 	}
 	return &result, nil
+}
+
+func CreateUser(db *Database, Name, OauthId string, Src int /*, Image, Preview string*/) (int64, error) {
+	query := "INSERT INTO users (name, oauth_id, src) VALUES (?, ?, ?)"
+	res, err := db.Pool.Exec(query, Name, OauthId, Src)
+	if err != nil {
+		return 0, err
+	}
+	var userId int64
+	userId, err = res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return userId, nil
+}
+
+func GetUser(db *Database, oauthId string, src int) (*User, error) {
+	query := "SELECT id, name FROM users WHERE oauth_id=? AND src=?"
+	var user User
+	row := db.Pool.QueryRow(query, oauthId, src)
+	err := row.Scan(&user.Id, &user.Name)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	user.OauthId = oauthId
+	user.Src = src
+	return &user, nil
 }

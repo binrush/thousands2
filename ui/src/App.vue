@@ -10,6 +10,7 @@ import { RouterLink, RouterView } from 'vue-router'
         <ul>
             <li class="inline px-1"><RouterLink to="/">Вершины</RouterLink></li> 
             <li class="inline px-1"><RouterLink to="/about">О проекте</RouterLink></li>
+            <li class="inline px-1"><a href="/auth/oauth/vk">Вход</a></li>
         </ul>
       </nav>
   </header>

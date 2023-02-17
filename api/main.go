@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+const (
+	BaseUrl = "http://dev.thousands.su:5000"
+)
+
 func ShiftPath(p string) (head, tail string) {
 	p = path.Clean("/" + p)
 	i := strings.Index(p[1:], "/") + 1
@@ -77,8 +81,10 @@ func main() {
 	sm := NewSessionManager()
 	app := &App{
 		Api: &Api{Config: conf, DB: db},
-		AuthServer: &AuthServer{Providers: GetAuthProviders(
-			"http://thousands.su/auth/authorized"), DB: db},
+		AuthServer: &AuthServer{
+			Providers: GetAuthProviders(BaseUrl),
+			DB:        db,
+		},
 		UIDir: os.Args[2],
 		SM:    &sm,
 	}
