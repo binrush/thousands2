@@ -10,7 +10,7 @@ const router = useRouter()
 const route = useRoute()
 
 async function loadSummits() {
-    const res = await fetch("http://localhost:5000/api/summits/table")
+    const res = await fetch("/api/summits/table")
     summits.value = (await res.json()).summits
 }
 
