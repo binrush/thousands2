@@ -163,7 +163,7 @@ func (h *AuthServer) Authorized(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sess.UserId = userId
-	http.Redirect(w, r, "/users/me", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/profile", http.StatusTemporaryRedirect)
 }
 
 func (h *AuthServer) RedirectToProvider(w http.ResponseWriter, r *http.Request) {
@@ -186,6 +186,11 @@ func (h *AuthServer) RedirectToProvider(w http.ResponseWriter, r *http.Request) 
 	}
 	oauthState := GenerateRandomString(OauthStateSize)
 	sess := r.Context().Value("session").(*Session)
+	if sess == nil {
+		log.Printf("Error setting state parameter: empty session")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 	sess.OauthState = oauthState
 	http.Redirect(
 		w, r, provider.GetConfig().AuthCodeURL(oauthState, oauth2.AccessTypeOffline),

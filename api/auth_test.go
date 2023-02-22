@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -13,55 +12,112 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type MockOauthHandler struct {
+const (
+	MockClientId     = "mock_client_id"
+	MockClientSecret = "mock_client_secret"
+	MockAccessToken  = "mock_access_token"
+	MockOauthUserId  = "2343"
+)
+
+type MockOauthHandler interface {
+	HandleAccessToken(w http.ResponseWriter, r *http.Request)
+	HandleAuthorize(w http.ResponseWriter, r *http.Request)
+}
+
+type MockOauthSuccessfulHandler struct {
 	Code        string
 	AccessToken string
 	UserId      string
 }
 
-func (mos *MockOauthHandler) HandleAccessToken(w http.ResponseWriter, r *http.Request) {
-	errorResponse := "{\"error\":\"invalid_request\",\"error_description\":\"Oauth Server Error\"}"
+func (mos *MockOauthSuccessfulHandler) HandleAccessToken(w http.ResponseWriter, r *http.Request) {
+	errorResponseTpl := "{\"error\":\"%s\",\"error_description\":\"Oauth Server Error\"}"
 	accessTokenResponse := `{
+		"token_type": "Bearer",
 		"access_token": "%s",
 		"expires_in": 43200,
 		"user_id": "%s"
 	}`
 	w.Header().Set("Content-Type", "application/json")
-	if r.FormValue("code") != mos.Code {
-		http.Error(
-			w,
-			errorResponse,
-			http.StatusUnauthorized)
-		return
+	errorResponse := ""
+	if !((r.FormValue("client_id") == MockClientId) && (r.FormValue("client_secret") == MockClientSecret)) {
+		errorResponse = fmt.Sprintf(errorResponseTpl, "invalid_client")
+	} else if r.FormValue("code") != mos.Code {
+		errorResponse = fmt.Sprintf(errorResponseTpl, "invalid_grant")
 	}
-	fmt.Fprintf(w, accessTokenResponse, mos.AccessToken, mos.UserId)
+
+	if errorResponse != "" {
+		http.Error(w, errorResponse, http.StatusUnauthorized)
+	} else {
+		fmt.Fprintf(w, accessTokenResponse, mos.AccessToken, mos.UserId)
+	}
 }
 
-func (mos *MockOauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
+func (mos *MockOauthSuccessfulHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	// TODO: check response_type, client_id, access_type params
 	//redirectUrl := r.FormValue("redirect_uri")
 	redirectUrl, err := url.Parse(r.FormValue("redirect_uri"))
 	if err != nil {
-		http.Error(w, "Failed to parse redirect url", http.StatusInternalServerError)
+		http.Error(w, "Failed to parse redirect url", http.StatusBadRequest)
 		return
 	}
-	state := r.FormValue("state")
+	if r.FormValue("client_id") != MockClientId {
+		http.Error(w, "Client ID does not match", http.StatusBadRequest)
+		return
+	}
 	query := redirectUrl.Query()
+	state := r.FormValue("state")
 	query.Add("state", state)
 	query.Add("code", mos.Code)
 	redirectUrl.RawQuery = query.Encode()
 	http.Redirect(w, r, redirectUrl.String(), http.StatusTemporaryRedirect)
 }
 
-func (mos *MockOauthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path {
-	case "/access_token":
-		mos.HandleAccessToken(w, r)
-	case "/authorize":
-		mos.HandleAuthorize(w, r)
-	default:
-		http.NotFound(w, r)
+type MockOauthIncorrectStateHandler struct {
+	MockOauthSuccessfulHandler
+}
+
+func (mos *MockOauthIncorrectStateHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
+	redirectUrl, err := url.Parse(r.FormValue("redirect_uri"))
+	if err != nil {
+		http.Error(w, "Failed to parse redirect url", http.StatusBadRequest)
+		return
 	}
+	query := redirectUrl.Query()
+	query.Add("state", "incorrect")
+	query.Add("code", mos.Code)
+	redirectUrl.RawQuery = query.Encode()
+	http.Redirect(w, r, redirectUrl.String(), http.StatusTemporaryRedirect)
+}
+
+// Handler that returns authorize error
+type MockOauthAuthorizeErrorHandler struct {
+	MockOauthSuccessfulHandler
+}
+
+func (mos *MockOauthAuthorizeErrorHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
+	redirectUrl, err := url.Parse(r.FormValue("redirect_uri"))
+	if err != nil {
+		http.Error(w, "Failed to parse redirect url", http.StatusBadRequest)
+		return
+	}
+	query := redirectUrl.Query()
+	query.Add("error", "invalid_request")
+	query.Add("error_description", "Invalid Client Id")
+	redirectUrl.RawQuery = query.Encode()
+	http.Redirect(w, r, redirectUrl.String(), http.StatusTemporaryRedirect)
+}
+
+// Handler that returns error to access token request
+type MockOauthTokenErrorHandler struct {
+	MockOauthSuccessfulHandler
+}
+
+func (mos *MockOauthTokenErrorHandler) HandleAccessToken(w http.ResponseWriter, r *http.Request) {
+	errorResponseTpl := "{\"error\":\"%s\",\"error_description\":\"Oauth Server Error\"}"
+	w.Header().Set("Content-Type", "application/json")
+	errorResponse := fmt.Sprintf(errorResponseTpl, "invalid_client")
+	http.Error(w, errorResponse, http.StatusUnauthorized)
 }
 
 type MockProvider struct {
@@ -75,6 +131,9 @@ func (*MockProvider) GetSrcId() int {
 
 // GetUserId implements provider
 func (*MockProvider) GetUserId(token *oauth2.Token) (string, error) {
+	if token.AccessToken != MockAccessToken {
+		return "", fmt.Errorf("Unable to get user id: incorrect access token")
+	}
 	return "2343", nil
 }
 
@@ -107,104 +166,96 @@ func NewMockProvider(serverUrl, client_id, client_secret string) *MockProvider {
 
 }
 
-/*
-func GetMockAuthProviders(baseUrl, serverUrl string) AuthProviders {
-	providers := make(AuthProviders)
-	providers["mock"] = NewMockProvider(baseUrl, serverUrl, "mock_client_id", "mock_client_secret")
-	return providers
+func NewMockOauthServer(mockOauthHandler MockOauthHandler) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/access_token":
+			mockOauthHandler.HandleAccessToken(w, r)
+		case "/authorize":
+			mockOauthHandler.HandleAuthorize(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
 }
-*/
 
-func TestAuthFlow(t *testing.T) {
-	var moh MockOauthHandler
-	moh.AccessToken = GenerateRandomString(32)
-	moh.Code = GenerateRandomString(32)
-	mos := httptest.NewServer(&moh)
-	defer mos.Close()
-	log.Printf("Oauth server url: %v", mos.URL)
-
-	mockProvider := NewMockProvider(mos.URL, "mock_client_id", "mock_client_secret")
+func NewApp(mockOauthProvider provider, t *testing.T) *App {
 	providers := make(AuthProviders)
-	providers["mock"] = mockProvider
+	providers["mock"] = mockOauthProvider
 	as := AuthServer{Providers: providers, DB: MockDatabase(t)}
 	sm := NewSessionManager()
-	app := &App{
+	return &App{
 		AuthServer: &as,
 		SM:         &sm,
 	}
-	appServer := httptest.NewServer(app)
-	defer appServer.Close()
-	// update RedirectUrl in auth provider
-	mockProvider.Config.RedirectURL = appServer.URL + "/auth/authorized/mock"
-	log.Printf("App server url: %v", appServer.URL)
+}
 
+func NewTestClient(t *testing.T) *http.Client {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		t.Fatalf("Failed to create cookie jar: %v", err)
 	}
-	client := &http.Client{Jar: jar}
+	return &http.Client{Jar: jar}
+}
 
-	resp, err := client.Get(appServer.URL + "/auth/oauth/mock")
-	if err != nil {
-		t.Fatal(err)
+func TestAuthFlow(t *testing.T) {
+	var cases = []struct {
+		oauthHandler       MockOauthHandler
+		expectedUrlPath    string
+		expectedStatusCode int
+	}{
+		{
+			&MockOauthSuccessfulHandler{
+				GenerateRandomString(32),
+				MockAccessToken,
+				MockOauthUserId,
+			},
+			"/profile",
+			404,
+		},
+		{
+			&MockOauthAuthorizeErrorHandler{},
+			"/auth/authorized/mock",
+			400,
+		},
+		{
+			&MockOauthIncorrectStateHandler{},
+			"/auth/authorized/mock",
+			400,
+		},
+		{
+			&MockOauthTokenErrorHandler{},
+			"/auth/authorized/mock",
+			400,
+		},
 	}
-	defer resp.Body.Close()
 
-	// Check that we were finally redirected to /profile endpoint
-	if resp.Request.URL.Path != "/profile" {
-		t.Fatalf("Registration not finished, not redirected to /profile."+
-			" Last url: %s, status code: %d", resp.Request.URL.String(), resp.StatusCode)
+	for _, tt := range cases {
+		mockOauthServer := NewMockOauthServer(tt.oauthHandler)
+		defer mockOauthServer.Close()
+
+		mockProvider := NewMockProvider(mockOauthServer.URL, MockClientId, MockClientSecret)
+		app := NewApp(mockProvider, t)
+		appServer := httptest.NewServer(app)
+		defer appServer.Close()
+
+		// update RedirectUrl in auth provider
+		mockProvider.Config.RedirectURL = appServer.URL + "/auth/authorized/mock"
+
+		client := NewTestClient(t)
+		resp, err := client.Get(appServer.URL + "/auth/oauth/mock")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		// Check that we were finally redirected to expected endpoint
+		if resp.Request.URL.Path != tt.expectedUrlPath {
+			t.Errorf("Unexpected url path: %s, expected %s", resp.Request.URL.Path, tt.expectedUrlPath)
+		}
+		if resp.StatusCode != tt.expectedStatusCode {
+			t.Errorf("Unexpected status code: %d, expected %d", resp.StatusCode, tt.expectedStatusCode)
+		}
 		// TODO: call corresponding endpoint to check if account is created
 	}
 }
-
-/*
-package main
-
-import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
-)
-
-func mockOauthServer(code string) *httptest.Server {
-	errorResponse := "{\"error\":\"invalid_request\",\"error_description\":\"Oauth Server Error\"}"
-	accessToken := GenerateRandomString(32)
-	mockUserId := 2343
-	accessTokenResponse := `{
-		"access_token": "%s",
-		"expires_in": 43200,
-		"user_id": %d
-	}`
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/access_token" {
-			if r.FormValue("code") != code {
-				http.Error(
-					w,
-					errorResponse,
-					http.StatusUnauthorized)
-				return
-			}
-			fmt.Fprintf(w, accessTokenResponse, accessToken, mockUserId)
-			return
-		}
-	}))
-
-}
-
-func MockAuthProviders(url string) AuthProviders {
-	providers := make(AuthProviders)
-	providers["vk"] = &oauth2.Config{
-		RedirectURL:  "https://thousands.su/auth/authorized/vk",
-		ClientID:     "MOCK_VK_CLIENT_ID",
-		ClientSecret: "MOCK_VK_CLIENT_SECRET",
-		Scopes:       []string{},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  url + "/authorize",
-			TokenURL: url + "/access_token",
-		},
-	}
-	return providers
-}
-*/
