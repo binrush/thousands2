@@ -345,6 +345,9 @@ func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
 }
 
 func CreateUser(db *Database, Name, OauthId string, Src int /*, Image, Preview string*/) (int64, error) {
+	db.WriteLock.Lock()
+	defer db.WriteLock.Unlock()
+
 	query := "INSERT INTO users (name, oauth_id, src) VALUES (?, ?, ?)"
 	res, err := db.Pool.Exec(query, Name, OauthId, Src)
 	if err != nil {
