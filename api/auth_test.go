@@ -120,17 +120,22 @@ func (mos *MockOauthTokenErrorHandler) HandleAccessToken(w http.ResponseWriter, 
 	http.Error(w, errorResponse, http.StatusUnauthorized)
 }
 
-type MockProvider struct {
+type MockProvider interface {
+	provider
+	SetConfig(*oauth2.Config)
+}
+
+type MockProviderSuccess struct {
 	Config *oauth2.Config
 }
 
 // GetSrcId implements provider
-func (*MockProvider) GetSrcId() int {
+func (*MockProviderSuccess) GetSrcId() int {
 	return 1
 }
 
 // GetUserId implements provider
-func (*MockProvider) GetUserId(token *oauth2.Token) (string, error) {
+func (*MockProviderSuccess) GetUserId(token *oauth2.Token) (string, error) {
 	if token.AccessToken != MockAccessToken {
 		return "", fmt.Errorf("Unable to get user id: incorrect access token")
 	}
@@ -138,7 +143,7 @@ func (*MockProvider) GetUserId(token *oauth2.Token) (string, error) {
 }
 
 // Register implements provider
-func (mp *MockProvider) Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error) {
+func (mp *MockProviderSuccess) Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error) {
 	userId, err := CreateUser(db, "Mock Mock", "2343", mp.GetSrcId())
 	if err != nil {
 		return 0, err
@@ -146,24 +151,40 @@ func (mp *MockProvider) Register(token *oauth2.Token, db *Database, ctx context.
 	return userId, nil
 }
 
-func (mp *MockProvider) GetConfig() *oauth2.Config {
+func (mp *MockProviderSuccess) GetConfig() *oauth2.Config {
 	return mp.Config
 }
 
-func NewMockProvider(serverUrl, client_id, client_secret string) *MockProvider {
-	var mockProvider MockProvider
-	mockProvider.Config = &oauth2.Config{
-		// RedirectURL is updated when test server is started
-		RedirectURL:  "",
-		ClientID:     client_id,
-		ClientSecret: client_secret,
+func (mp *MockProviderSuccess) SetConfig(config *oauth2.Config) {
+	mp.Config = config
+}
+
+type MockProviderUserIdError struct {
+	MockProviderSuccess
+}
+
+func (*MockProviderUserIdError) GetUserId(token *oauth2.Token) (string, error) {
+	return "", fmt.Errorf("Failed to get user ID")
+}
+
+type MockProviderRegisterError struct {
+	MockProviderSuccess
+}
+
+func (*MockProviderRegisterError) Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error) {
+	return 0, fmt.Errorf("Failed to register user")
+}
+
+func NewMockOauthConfig(serverUrl, redirectURL string) *oauth2.Config {
+	return &oauth2.Config{
+		RedirectURL:  redirectURL,
+		ClientID:     MockClientId,
+		ClientSecret: MockClientSecret,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  serverUrl + "/authorize",
 			TokenURL: serverUrl + "/access_token",
 		},
 	}
-	return &mockProvider
-
 }
 
 func NewMockOauthServer(mockOauthHandler MockOauthHandler) *httptest.Server {
@@ -201,6 +222,7 @@ func NewTestClient(t *testing.T) *http.Client {
 func TestAuthFlow(t *testing.T) {
 	var cases = []struct {
 		oauthHandler       MockOauthHandler
+		oauthProvider      MockProvider
 		expectedUrlPath    string
 		expectedStatusCode int
 	}{
@@ -210,21 +232,45 @@ func TestAuthFlow(t *testing.T) {
 				MockAccessToken,
 				MockOauthUserId,
 			},
+			&MockProviderSuccess{},
 			"/profile",
 			404,
 		},
 		{
 			&MockOauthAuthorizeErrorHandler{},
+			&MockProviderSuccess{},
 			"/auth/authorized/mock",
 			400,
 		},
 		{
 			&MockOauthIncorrectStateHandler{},
+			&MockProviderSuccess{},
 			"/auth/authorized/mock",
 			400,
 		},
 		{
 			&MockOauthTokenErrorHandler{},
+			&MockProviderSuccess{},
+			"/auth/authorized/mock",
+			400,
+		},
+		{
+			&MockOauthSuccessfulHandler{
+				GenerateRandomString(32),
+				MockAccessToken,
+				MockOauthUserId,
+			},
+			&MockProviderUserIdError{},
+			"/auth/authorized/mock",
+			400,
+		},
+		{
+			&MockOauthSuccessfulHandler{
+				GenerateRandomString(32),
+				MockAccessToken,
+				MockOauthUserId,
+			},
+			&MockProviderRegisterError{},
 			"/auth/authorized/mock",
 			400,
 		},
@@ -234,13 +280,12 @@ func TestAuthFlow(t *testing.T) {
 		mockOauthServer := NewMockOauthServer(tt.oauthHandler)
 		defer mockOauthServer.Close()
 
-		mockProvider := NewMockProvider(mockOauthServer.URL, MockClientId, MockClientSecret)
-		app := NewApp(mockProvider, t)
+		app := NewApp(tt.oauthProvider, t)
 		appServer := httptest.NewServer(app)
 		defer appServer.Close()
 
-		// update RedirectUrl in auth provider
-		mockProvider.Config.RedirectURL = appServer.URL + "/auth/authorized/mock"
+		tt.oauthProvider.SetConfig(
+			NewMockOauthConfig(mockOauthServer.URL, appServer.URL+"/auth/authorized/mock"))
 
 		client := NewTestClient(t)
 		resp, err := client.Get(appServer.URL + "/auth/oauth/mock")

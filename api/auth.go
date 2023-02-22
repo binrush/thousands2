@@ -158,7 +158,7 @@ func (h *AuthServer) Authorized(w http.ResponseWriter, r *http.Request) {
 		userId, err = provider.Register(token, h.DB, r.Context())
 		if err != nil {
 			log.Printf("Failed to register user: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
 	}
