@@ -21,19 +21,6 @@ type Session struct {
 	RedirectUrl string
 }
 
-type VKUser struct {
-	Id           int    `json:"id"`
-	Photo200Orig string `json:"photo_200_orig"`
-	Photo50      string `json:"photo_50"`
-	FirstName    string `json:"first_name"`
-	LastName     string `json:"last_name"`
-	HasPhoto     int    `json:"has_photo"`
-}
-
-type VKUserGetResponse struct {
-	Response *VKUser `json:"response"`
-}
-
 type SessionManager struct {
 	Data map[string]*Session
 }

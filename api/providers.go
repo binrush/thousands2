@@ -26,6 +26,19 @@ type provider interface {
 
 type AuthProviders map[string]provider
 
+type VKUser struct {
+	Id           int    `json:"id"`
+	Photo200Orig string `json:"photo_200_orig"`
+	Photo50      string `json:"photo_50"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	HasPhoto     int    `json:"has_photo"`
+}
+
+type VKUserGetResponse struct {
+	Response []*VKUser `json:"response"`
+}
+
 type VKProvider struct {
 	config *oauth2.Config
 }
@@ -39,11 +52,11 @@ func (provider *VKProvider) GetSrcId() int {
 }
 
 func (provider *VKProvider) GetUserId(token *oauth2.Token) (string, error) {
-	userId := token.Extra("user_id")
-	if userId == nil {
+	userIdField := token.Extra("user_id")
+	if userIdField == nil {
 		return "", fmt.Errorf("Failed to get VK user Id")
 	}
-	return userId.(string), nil
+	return strconv.FormatInt(int64(userIdField.(float64)), 10), nil
 }
 
 func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error) {
@@ -71,7 +84,7 @@ func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx cont
 	if err != nil {
 		return 0, err
 	}
-	userData := vkResponse.Response
+	userData := vkResponse.Response[0]
 	var userId int64
 	userId, err = CreateUser(
 		db,
@@ -83,19 +96,15 @@ func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx cont
 	return userId, nil
 }
 
-func NewVKProvider(baseUrl, client_id, client_secret string) provider {
-	var vkProvider VKProvider
-	vkProvider.config = &oauth2.Config{
-		RedirectURL:  baseUrl + "/auth/authorized/vk",
-		ClientID:     client_id,
-		ClientSecret: client_secret,
-		Endpoint:     vk.Endpoint,
-	}
-	return &vkProvider
-}
-
 func GetAuthProviders(baseUrl string) AuthProviders {
 	providers := make(AuthProviders)
-	providers["vk"] = NewVKProvider(baseUrl, os.Getenv("VK_CLIENT_ID"), os.Getenv("VK_CLIENT_SECRET"))
+	providers["vk"] = &VKProvider{
+		&oauth2.Config{
+			RedirectURL:  baseUrl + "/auth/authorized/vk",
+			ClientID:     os.Getenv("VK_CLIENT_ID"),
+			ClientSecret: os.Getenv("VK_CLIENT_SECRET"),
+			Endpoint:     vk.Endpoint,
+		},
+	}
 	return providers
 }
