@@ -19,6 +19,16 @@ const (
 	MockOauthUserId  = "2343"
 )
 
+func Redirections(resp *http.Response) []string {
+	history := []string{}
+	for resp != nil {
+		req := resp.Request
+		history = append(history, req.URL.String())
+		resp = req.Response
+	}
+	return history
+}
+
 type MockOauthHandler interface {
 	HandleAccessToken(w http.ResponseWriter, r *http.Request)
 	HandleAuthorize(w http.ResponseWriter, r *http.Request)
@@ -302,5 +312,60 @@ func TestAuthFlow(t *testing.T) {
 			t.Errorf("Unexpected status code: %d, expected %d", resp.StatusCode, tt.expectedStatusCode)
 		}
 		// TODO: call corresponding endpoint to check if account is created
+	}
+}
+
+func TestAuthFlowUserExists(t *testing.T) {
+	oauthHandler := &MockOauthSuccessfulHandler{
+		GenerateRandomString(32),
+		MockAccessToken,
+		MockOauthUserId,
+	}
+	mockOauthServer := NewMockOauthServer(oauthHandler)
+	defer mockOauthServer.Close()
+
+	// to ensure register is not called
+	oauthProvider := &MockProviderRegisterError{}
+	app := NewApp(oauthProvider, t)
+	appServer := httptest.NewServer(app)
+	defer appServer.Close()
+
+	oauthProvider.SetConfig(
+		NewMockOauthConfig(mockOauthServer.URL, appServer.URL+"/auth/authorized/mock"))
+
+	_, err := CreateUser(app.AuthServer.DB, "Mock Mock", MockOauthUserId, 1)
+
+	client := NewTestClient(t)
+	resp, err := client.Get(appServer.URL + "/auth/oauth/mock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	// Check that we were finally redirected to expected endpoint
+	expectedUrlPath := "/profile"
+	if resp.Request.URL.Path != expectedUrlPath {
+		t.Fatalf("Unexpected url path: %s, expected %s", resp.Request.URL.Path, expectedUrlPath)
+	}
+	expectedStatusCode := http.StatusNotFound
+	if resp.StatusCode != expectedStatusCode {
+		t.Fatalf("Unexpected status code: %d, expected %d", resp.StatusCode, expectedStatusCode)
+	}
+	requestHistory := Redirections(resp)
+	if len(requestHistory) != 4 {
+		t.Fatalf("Expected full oauth flow (4 steps), got: %v", requestHistory)
+	}
+
+	// Check that logged user is redirected directly to /profile
+	client.Get(appServer.URL + "/auth/oauth/mock")
+	if resp.Request.URL.Path != expectedUrlPath {
+		t.Fatalf("Unexpected url path: %s, expected %s", resp.Request.URL.Path, expectedUrlPath)
+	}
+	if resp.StatusCode != expectedStatusCode {
+		t.Fatalf("Unexpected status code: %d, expected %d", resp.StatusCode, expectedStatusCode)
+	}
+	requestHistory = Redirections(resp)
+	if len(requestHistory) != 4 {
+		t.Fatalf("Expected redirect to /profile (2 steps), got: %v", requestHistory)
 	}
 }

@@ -184,15 +184,19 @@ func (h *AuthServer) RedirectToProvider(w http.ResponseWriter, r *http.Request) 
 		http.NotFound(w, r)
 		return
 	}
-	oauthState := GenerateRandomString(OauthStateSize)
 	sess := r.Context().Value("session").(*Session)
 	if sess == nil {
 		log.Printf("Error setting state parameter: empty session")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	sess.OauthState = oauthState
+	if sess.UserId != 0 { // user already logged in
+		http.Redirect(w, r, "/profile", http.StatusTemporaryRedirect)
+		return
+	}
+
+	sess.OauthState = GenerateRandomString(OauthStateSize)
 	http.Redirect(
-		w, r, provider.GetConfig().AuthCodeURL(oauthState, oauth2.AccessTypeOffline),
+		w, r, provider.GetConfig().AuthCodeURL(sess.OauthState, oauth2.AccessTypeOffline),
 		http.StatusTemporaryRedirect)
 }
