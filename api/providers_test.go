@@ -1,0 +1,171 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"testing"
+
+	"golang.org/x/oauth2"
+)
+
+const (
+	MockVKClientID     = "mock_vk_client_id"
+	MockVKClientSecret = "mock_vk_client_secret"
+
+	MockUserName = "Climbing User"
+)
+
+func TestVkGetUserId(t *testing.T) {
+	vk := &VKProvider{}
+
+	tokenDataRaw := `
+	{
+		"access_token": "533bacf01e11f55b536a565b57531ac114461ae8736d6506a3",
+		"expires_in": 43200,
+		"user_id": 2343
+	}`
+	tokenExtra := make(map[string]interface{})
+	json.Unmarshal([]byte(tokenDataRaw), &tokenExtra)
+
+	tokenWithUserId := (&oauth2.Token{}).WithExtra(tokenExtra)
+
+	var cases = []struct {
+		token          *oauth2.Token
+		expectedUserId string
+		expectedErr    error
+	}{
+		{
+			&oauth2.Token{},
+			"",
+			errors.New("Failed to get VK user Id"),
+		},
+		{
+			tokenWithUserId,
+			"2343",
+			nil,
+		},
+	}
+	for _, tt := range cases {
+		userId, err := vk.GetUserId(tt.token)
+
+		if userId != tt.expectedUserId {
+			t.Fatalf("Incorrect userId returned: %v, expected %v", userId, tt.expectedUserId)
+		}
+		if tt.expectedErr == nil {
+			if err != nil {
+				t.Fatalf("Unexpected error returned: %v", tt.expectedErr)
+			}
+			return
+		}
+		if err.Error() != tt.expectedErr.Error() {
+			t.Fatalf("Incorrect err returned: %v, expected %v", err, tt.expectedErr)
+		}
+	}
+}
+
+func MockVKHandler(w http.ResponseWriter, r *http.Request) {
+	successfulResponse := `
+	{
+		"response": [
+			{
+				"id": %d,
+				"photo_200_orig": "https://sun6-22.userapi.com/s/v1/if1/CbhIhl0F_mmMhIjEpBhuCx0T5sw9Ffx681zn9UE2oKv4HjjqTacNxxlTWWCn2oCeiNYjDpjb.jpg?size=200x291&quality=96&crop=265,36,233,340&ava=1",
+				"has_photo": 1,
+				"photo_50": "https://sun6-22.userapi.com/s/v1/if1/jUZc3dhJRtIlqrcrbMaSTDF14FJ-M5QG5JWggSdi4iuB0M5p4UvRbnQfaR4HSDi-ExI8E1j0.jpg?size=50x50&quality=96&crop=281,47,201,201&ava=1",
+				"first_name": "Climbing",
+				"last_name": "User",
+				"can_access_closed": true,
+				"is_closed": false
+			}
+		]
+	}
+	`
+	errorResponse := `
+	{
+		"error": {
+			"error_code": 5,
+			"error_msg": "User authorization failed: no access_token passed.",
+			"request_params": [
+				{
+					"key": "method",
+					"value": "users.get"
+				},
+				{
+					"key": "oauth",
+					"value": "1"
+				},
+				{
+					"key": "v",
+					"value": "5.131"
+				}
+			]
+		}
+	}
+	`
+	if r.URL.Path == "/method/users.get" {
+		if r.Header.Get("Authorization") != "Bearer "+MockAccessToken {
+			fmt.Fprintf(w, errorResponse)
+		} else {
+			userId, _ := strconv.Atoi(MockOauthUserId)
+			fmt.Fprintf(w, successfulResponse, userId)
+		}
+		return
+	}
+	http.Error(w, "404", http.StatusNotFound)
+}
+
+func TestVKRegister(t *testing.T) {
+	mockVKServer := httptest.NewServer(http.HandlerFunc(MockVKHandler))
+	defer mockVKServer.Close()
+
+	vk := &VKProvider{
+		&oauth2.Config{},
+		mockVKServer.URL,
+	}
+	token := &oauth2.Token{
+		AccessToken: MockAccessToken,
+	}
+	db := MockDatabase(t)
+	userId, err := vk.Register(token, db, context.Background())
+	if err != nil {
+		t.Fatalf("Registration error: %v", err)
+	}
+	user, err := GetUser(db, MockOauthUserId, 1)
+
+	expectedUser := User{
+		Id:      userId,
+		OauthId: MockOauthUserId,
+		Src:     1,
+		Name:    MockUserName,
+	}
+	if *user != expectedUser {
+		t.Fatalf("Unexpected user created: %v, expected %v", *user, expectedUser)
+	}
+}
+
+func TestVKRegisterError(t *testing.T) {
+	mockVKServer := httptest.NewServer(http.HandlerFunc(MockVKHandler))
+	defer mockVKServer.Close()
+
+	vk := &VKProvider{
+		&oauth2.Config{},
+		mockVKServer.URL,
+	}
+	token := &oauth2.Token{
+		AccessToken: "incorrect token",
+	}
+	db := MockDatabase(t)
+	userId, err := vk.Register(token, db, context.Background())
+	if err == nil {
+		t.Fatalf("Expected registration error, got userId=%d, err=%v", userId, err)
+	}
+	expectedError := errors.New("VK API error 5: User authorization failed: no access_token passed.")
+	if err.Error() != expectedError.Error() {
+		t.Fatalf("Unexpected error returned %v, expected %v", err, expectedError)
+	}
+}

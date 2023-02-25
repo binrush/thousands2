@@ -14,17 +14,17 @@ import (
 )
 
 const (
-	VKAPIEndpoint = "https://api.vk.com/method/users.get"
+	VKApiBaseUrl = "https://api.vk.com"
 )
 
-type provider interface {
+type Provider interface {
 	GetSrcId() int
 	GetConfig() *oauth2.Config
 	GetUserId(token *oauth2.Token) (string, error)
 	Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error)
 }
 
-type AuthProviders map[string]provider
+type AuthProviders map[string]Provider
 
 type VKUser struct {
 	Id           int    `json:"id"`
@@ -35,12 +35,19 @@ type VKUser struct {
 	HasPhoto     int    `json:"has_photo"`
 }
 
+type VKAPiError struct {
+	ErrorCode int    `json:"error_code"`
+	ErrorMsg  string `json:"error_msg"`
+}
+
 type VKUserGetResponse struct {
-	Response []*VKUser `json:"response"`
+	Response []*VKUser   `json:"response"`
+	Error    *VKAPiError `json:"error"`
 }
 
 type VKProvider struct {
-	config *oauth2.Config
+	config  *oauth2.Config
+	BaseUrl string
 }
 
 func (provider *VKProvider) GetConfig() *oauth2.Config {
@@ -61,7 +68,7 @@ func (provider *VKProvider) GetUserId(token *oauth2.Token) (string, error) {
 
 func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error) {
 	oauthClient := provider.GetConfig().Client(ctx, token)
-	req, err := http.NewRequest("GET", VKAPIEndpoint, nil)
+	req, err := http.NewRequest("GET", provider.BaseUrl+"/method/users.get", nil)
 	if err != nil {
 		return 0, err
 	}
@@ -84,6 +91,10 @@ func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx cont
 	if err != nil {
 		return 0, err
 	}
+	if vkResponse.Error != nil {
+		// Handle error response from VK API
+		return 0, fmt.Errorf("VK API error %d: %s", vkResponse.Error.ErrorCode, vkResponse.Error.ErrorMsg)
+	}
 	userData := vkResponse.Response[0]
 	var userId int64
 	userId, err = CreateUser(
@@ -105,6 +116,7 @@ func GetAuthProviders(baseUrl string) AuthProviders {
 			ClientSecret: os.Getenv("VK_CLIENT_SECRET"),
 			Endpoint:     vk.Endpoint,
 		},
+		VKApiBaseUrl,
 	}
 	return providers
 }

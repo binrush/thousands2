@@ -131,7 +131,7 @@ func (mos *MockOauthTokenErrorHandler) HandleAccessToken(w http.ResponseWriter, 
 }
 
 type MockProvider interface {
-	provider
+	Provider
 	SetConfig(*oauth2.Config)
 }
 
@@ -210,7 +210,7 @@ func NewMockOauthServer(mockOauthHandler MockOauthHandler) *httptest.Server {
 	}))
 }
 
-func NewApp(mockOauthProvider provider, t *testing.T) *App {
+func NewApp(mockOauthProvider Provider, t *testing.T) *App {
 	providers := make(AuthProviders)
 	providers["mock"] = mockOauthProvider
 	as := AuthServer{Providers: providers, DB: MockDatabase(t)}
