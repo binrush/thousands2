@@ -64,7 +64,7 @@ func TestSummitsTableHandler(t *testing.T) {
 		return
 	}
 
-	req, err := http.NewRequest("GET", "/summits/table", nil)
+	req, err := http.NewRequest("GET", "/summits", nil)
 	if err != nil {
 		t.Fatal(err)
 		return
