@@ -11,6 +11,7 @@ import (
 const (
 	internalServerErrorMsg = "Internal server error"
 	notFoundMsg            = "Path not found"
+	methodNotAllowedMsg    = "Method not allowed"
 )
 
 type ApiError struct {
@@ -24,6 +25,7 @@ func (e *ApiError) Error() string {
 
 var pathNotFoundError = &ApiError{notFoundMsg, http.StatusNotFound}
 var serverError = &ApiError{internalServerErrorMsg, http.StatusInternalServerError}
+var methodNotAllowedError = &ApiError{methodNotAllowedMsg, http.StatusInternalServerError}
 
 type Api struct {
 	Config *RuntimeConfig
@@ -95,6 +97,19 @@ func (h *Api) HandleTop(r *http.Request) interface{} {
 	return top
 }
 
+func (h *Api) HandleClimb(r *http.Request) interface{} {
+	switch r.Method {
+	case http.MethodPut:
+		// edit existing climb
+		return nil
+	case http.MethodDelete:
+		// delete climb
+		return nil
+	default:
+		return methodNotAllowedError
+	}
+}
+
 func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var head string
 	head, r.URL.Path = ShiftPath(r.URL.Path)
@@ -102,23 +117,25 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch head {
 	case "summit":
-		if r.Method != "GET" {
-			http.Error(w, "Only GET is allowed", http.StatusMethodNotAllowed)
-			return
+		if r.Method != http.MethodGet {
+			resp = methodNotAllowedError
+			break
 		}
 		resp = h.HandleSummit(r)
 	case "summits":
-		if r.Method != "GET" {
-			http.Error(w, "Only GET is allowed", http.StatusMethodNotAllowed)
-			return
+		if r.Method != http.MethodGet {
+			resp = methodNotAllowedError
+			break
 		}
 		resp = h.HandleSummitsTable(r)
 	case "top":
-		if r.Method != "GET" {
-			http.Error(w, "Only GET is allowed", http.StatusMethodNotAllowed)
-			return
+		if r.Method != http.MethodGet {
+			resp = methodNotAllowedError
+			break
 		}
 		resp = h.HandleTop(r)
+	case "climb":
+		resp = h.HandleClimb(r)
 	default:
 		resp = pathNotFoundError
 	}
