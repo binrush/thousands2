@@ -2,74 +2,77 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 )
 
-var ErrPathNotFound = errors.New("Path not found")
-var ErrInvalidParams = errors.New("Invalid parameters passed")
+const (
+	internalServerErrorMsg = "Internal server error"
+	notFoundMsg            = "Path not found"
+)
 
-type InvalidParameterError struct {
-	Message string
+type ApiError struct {
+	Message    string `json:"error"`
+	StatusCode int
 }
 
-func (e *InvalidParameterError) Error() string {
+func (e *ApiError) Error() string {
 	return e.Message
 }
 
-type ApiError struct {
-	Error string `json:"error"`
-}
+var pathNotFoundError = &ApiError{notFoundMsg, http.StatusNotFound}
+var serverError = &ApiError{internalServerErrorMsg, http.StatusInternalServerError}
 
 type Api struct {
 	Config *RuntimeConfig
 	DB     *Database
 }
 
-func (h *Api) HandleSummit(r *http.Request) (interface{}, error) {
+func (h *Api) HandleSummit(r *http.Request) interface{} {
 	if r.URL.Path == "/" {
-		return nil, ErrPathNotFound
+		return pathNotFoundError
 	}
 
 	var ridgeId, summitId string
 	ridgeId, r.URL.Path = ShiftPath(r.URL.Path)
 	if r.URL.Path == "/" {
-		return nil, ErrPathNotFound
+		return pathNotFoundError
 	}
 
 	summitId, r.URL.Path = ShiftPath(r.URL.Path)
 	if r.URL.Path != "/" {
-		return nil, ErrPathNotFound
+		return pathNotFoundError
 	}
 
 	summit, err := FetchSummit(h.DB, ridgeId, summitId)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to fetch summit: %v", err)
+		log.Printf("Failed to fetch summit %s/%s: %v", ridgeId, summitId, err)
+		return serverError
 	}
 	if summit == nil { // summit not found
-		return nil, ErrPathNotFound
+		return pathNotFoundError
 	}
-	return summit, nil
+	return summit
 }
 
-func (h *Api) HandleSummitsTable(r *http.Request) (interface{}, error) {
+func (h *Api) HandleSummitsTable(r *http.Request) interface{} {
 	if r.URL.Path != "/" {
-		return nil, ErrPathNotFound
+		return pathNotFoundError
 	}
 	summits, err := FetchSummitsTable(h.DB)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to fetch summits from db: %v", err)
+		log.Printf("Failed to fetch summits from db: %v", err)
+		return serverError
 	}
-	return summits, nil
+	return summits
 }
 
-func (h *Api) HandleTop(r *http.Request) (interface{}, error) {
+func (h *Api) HandleTop(r *http.Request) interface{} {
 
 	if r.URL.Path != "/" {
-		return nil, ErrPathNotFound
+		return pathNotFoundError
 	}
 	var page int
 	var err error
@@ -77,25 +80,25 @@ func (h *Api) HandleTop(r *http.Request) (interface{}, error) {
 	if pageParam == nil {
 		page = 1
 	} else if len(pageParam) != 1 {
-		return nil, &InvalidParameterError{"Invalid page parameter provided"}
+		return &ApiError{"Invalid page parameter provided", http.StatusBadRequest}
 	} else {
 		page, err = strconv.Atoi(pageParam[0])
 		if (err != nil) || (page <= 0) {
-			return nil, &InvalidParameterError{"Invalid page parameter provided"}
+			return &ApiError{"Invalid page parameter provided", http.StatusBadRequest}
 		}
 	}
 	top, err := FetchTop(h.DB, page, h.Config.ItemsPerPage)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to fetch top: %v", err)
+		log.Printf("Failed to fetch top: %v", err)
+		return serverError
 	}
-	return top, nil
+	return top
 }
 
 func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var head string
 	head, r.URL.Path = ShiftPath(r.URL.Path)
 	var resp interface{}
-	var handlerErr error
 
 	switch head {
 	case "summit":
@@ -103,46 +106,34 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Only GET is allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		resp, handlerErr = h.HandleSummit(r)
+		resp = h.HandleSummit(r)
 	case "summits":
 		if r.Method != "GET" {
 			http.Error(w, "Only GET is allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		resp, handlerErr = h.HandleSummitsTable(r)
+		resp = h.HandleSummitsTable(r)
 	case "top":
 		if r.Method != "GET" {
 			http.Error(w, "Only GET is allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		resp, handlerErr = h.HandleTop(r)
+		resp = h.HandleTop(r)
 	default:
-		handlerErr = ErrPathNotFound
+		resp = pathNotFoundError
 	}
 
-	_, isParamError := handlerErr.(*InvalidParameterError)
-	switch {
-	case handlerErr == nil:
-		jsonResp, err := json.Marshal(resp)
-		if err != nil {
-			log.Printf("Error marshalling top: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, string(jsonResp))
-	case handlerErr == ErrPathNotFound:
-		http.Error(w, "Not found", http.StatusNotFound)
-	case isParamError:
-		jsonResp, err := json.Marshal(ApiError{handlerErr.Error()})
-		if err != nil {
-			log.Printf("Error marshalling error message: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-		http.Error(w, string(jsonResp), http.StatusBadRequest)
-	default:
-		fmt.Printf("Error handling request: %v", handlerErr)
+	jsonResp, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("Error marshalling top: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+
+	if apiError, ok := resp.(*ApiError); ok {
+		http.Error(w, string(jsonResp), apiError.StatusCode)
+		return
+	}
+	fmt.Fprintf(w, string(jsonResp))
 }

@@ -144,7 +144,7 @@ func TestHandlersClientErrors(t *testing.T) {
 
 		if status := rr.Code; status != tt.expectedCode {
 			t.Errorf("handler returned wrong status code for %s: got %v want %v",
-				tt.url, status, http.StatusBadRequest)
+				tt.url, status, tt.expectedCode)
 		}
 	}
 }
