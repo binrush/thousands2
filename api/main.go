@@ -1,12 +1,13 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/alexedwards/scs/v2"
 )
 
 const (
@@ -31,12 +32,11 @@ type App struct {
 	Api        *Api
 	AuthServer *AuthServer
 	UIDir      string
-	SM         *SessionManager
+	SM         *scs.SessionManager
 }
 
 func (h *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	sess := h.SM.StartSession(w, r)
-	r = r.WithContext(context.WithValue(r.Context(), "session", sess))
+
 	head, path := ShiftPath(r.URL.Path)
 	switch head {
 	case "api":
@@ -78,15 +78,20 @@ func main() {
 	}
 	log.Printf("Summits data loaded")
 
-	sm := NewSessionManager()
+	sm := scs.New()
 	app := &App{
-		Api: &Api{Config: conf, DB: db},
+		Api: &Api{
+			Config: conf,
+			DB:     db,
+			SM:     sm,
+		},
 		AuthServer: &AuthServer{
 			Providers: GetAuthProviders(BaseUrl),
 			DB:        db,
+			SM:        sm,
 		},
 		UIDir: os.Args[2],
-		SM:    &sm,
+		SM:    sm,
 	}
-	log.Fatal(http.ListenAndServe(":5000", app))
+	log.Fatal(http.ListenAndServe(":5000", sm.LoadAndSave(app)))
 }

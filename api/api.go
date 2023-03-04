@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+
+	"github.com/alexedwards/scs/v2"
 )
 
 const (
@@ -30,6 +32,7 @@ var methodNotAllowedError = &ApiError{methodNotAllowedMsg, http.StatusInternalSe
 type Api struct {
 	Config *RuntimeConfig
 	DB     *Database
+	SM     *scs.SessionManager
 }
 
 func (h *Api) HandleSummit(r *http.Request) interface{} {

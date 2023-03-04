@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/alexedwards/scs/v2"
 	"golang.org/x/oauth2"
 )
 
@@ -213,11 +214,11 @@ func NewMockOauthServer(mockOauthHandler MockOauthHandler) *httptest.Server {
 func NewApp(mockOauthProvider Provider, t *testing.T) *App {
 	providers := make(AuthProviders)
 	providers["mock"] = mockOauthProvider
-	as := AuthServer{Providers: providers, DB: MockDatabase(t)}
-	sm := NewSessionManager()
+	sm := scs.New()
+	as := AuthServer{Providers: providers, DB: MockDatabase(t), SM: sm}
 	return &App{
 		AuthServer: &as,
-		SM:         &sm,
+		SM:         sm,
 	}
 }
 
@@ -291,7 +292,7 @@ func TestAuthFlow(t *testing.T) {
 		defer mockOauthServer.Close()
 
 		app := NewApp(tt.oauthProvider, t)
-		appServer := httptest.NewServer(app)
+		appServer := httptest.NewServer(app.SM.LoadAndSave(app))
 		defer appServer.Close()
 
 		tt.oauthProvider.SetConfig(
@@ -327,7 +328,7 @@ func TestAuthFlowUserExists(t *testing.T) {
 	// to ensure register is not called
 	oauthProvider := &MockProviderRegisterError{}
 	app := NewApp(oauthProvider, t)
-	appServer := httptest.NewServer(app)
+	appServer := httptest.NewServer(app.SM.LoadAndSave(app))
 	defer appServer.Close()
 
 	oauthProvider.SetConfig(

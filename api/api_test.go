@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/alexedwards/scs/v2"
 )
 
 func AreEqualJSON(s1, s2 string) (bool, error) {
@@ -125,11 +127,11 @@ func TestHandlersClientErrors(t *testing.T) {
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
 	api := Api{Config: conf}
 	as := AuthServer{}
-	sm := NewSessionManager()
+	sm := scs.New()
 	app := &App{
 		Api:        &api,
 		AuthServer: &as,
-		SM:         &sm,
+		SM:         sm,
 	}
 
 	for _, tt := range cases {

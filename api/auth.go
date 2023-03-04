@@ -6,30 +6,15 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/alexedwards/scs/v2"
 	"golang.org/x/oauth2"
 )
 
 const (
-	SessionCookieName = "TSID"
-	SessionIdSize     = 32
-	OauthStateSize    = 16
+	UserIdKey      = "UserId"
+	OauthStateKey  = "OauthState"
+	OauthStateSize = 16
 )
-
-type Session struct {
-	UserId      int64
-	OauthState  string
-	RedirectUrl string
-}
-
-type SessionManager struct {
-	Data map[string]*Session
-}
-
-func NewSessionManager() SessionManager {
-	return SessionManager{
-		Data: make(map[string]*Session),
-	}
-}
 
 func GenerateRandomString(size int) string {
 	b := make([]byte, size)
@@ -41,30 +26,10 @@ func GenerateRandomString(size int) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-func (sm *SessionManager) StartSession(w http.ResponseWriter, r *http.Request) *Session {
-	sessionIdCookie, err := r.Cookie(SessionCookieName)
-	if err == nil {
-		sessionData, ok := sm.Data[sessionIdCookie.Value]
-
-		if ok {
-			return sessionData
-		}
-	}
-	sessionId := GenerateRandomString(SessionIdSize)
-	sm.Data[sessionId] = &Session{}
-	sessCookie := http.Cookie{
-		Name:     SessionCookieName,
-		Value:    sessionId,
-		HttpOnly: true,
-		Path:     "/",
-	}
-	http.SetCookie(w, &sessCookie)
-	return sm.Data[sessionId]
-}
-
 type AuthServer struct {
 	Providers AuthProviders
 	DB        *Database
+	SM        *scs.SessionManager
 }
 
 func (h *AuthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -103,14 +68,7 @@ func (h *AuthServer) Authorized(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	sess := r.Context().Value("session").(*Session)
-	if sess == nil {
-		log.Printf("Error checking state parameter: empty session")
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-	expectedState := sess.OauthState
-	sess.OauthState = ""
+	expectedState := h.SM.Pop(r.Context(), OauthStateKey).(string)
 	if expectedState != r.FormValue("state") {
 		log.Printf("Error checking state parameter: value not match")
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -149,7 +107,7 @@ func (h *AuthServer) Authorized(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	sess.UserId = userId
+	h.SM.Put(r.Context(), UserIdKey, userId)
 	http.Redirect(w, r, "/profile", http.StatusTemporaryRedirect)
 }
 
@@ -171,19 +129,14 @@ func (h *AuthServer) RedirectToProvider(w http.ResponseWriter, r *http.Request) 
 		http.NotFound(w, r)
 		return
 	}
-	sess := r.Context().Value("session").(*Session)
-	if sess == nil {
-		log.Printf("Error setting state parameter: empty session")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	if sess.UserId != 0 { // user already logged in
+	if h.SM.GetInt64(r.Context(), UserIdKey) != 0 { // user already logged in
 		http.Redirect(w, r, "/profile", http.StatusTemporaryRedirect)
 		return
 	}
 
-	sess.OauthState = GenerateRandomString(OauthStateSize)
+	oauthState := GenerateRandomString(OauthStateSize)
+	h.SM.Put(r.Context(), OauthStateKey, oauthState)
 	http.Redirect(
-		w, r, provider.GetConfig().AuthCodeURL(sess.OauthState, oauth2.AccessTypeOffline),
+		w, r, provider.GetConfig().AuthCodeURL(oauthState, oauth2.AccessTypeOffline),
 		http.StatusTemporaryRedirect)
 }
