@@ -62,11 +62,12 @@ func (h *Api) HandleSummit(r *http.Request) interface{} {
 	return summit
 }
 
-func (h *Api) HandleSummitsTable(r *http.Request) interface{} {
+func (h *Api) HandleSummits(r *http.Request) interface{} {
 	if r.URL.Path != "/" {
 		return pathNotFoundError
 	}
-	summits, err := FetchSummitsTable(h.DB)
+	userId := h.SM.GetInt64(r.Context(), UserIdKey)
+	summits, err := FetchSummits(h.DB, userId)
 	if err != nil {
 		log.Printf("Failed to fetch summits from db: %v", err)
 		return serverError
@@ -130,7 +131,7 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			resp = methodNotAllowedError
 			break
 		}
-		resp = h.HandleSummitsTable(r)
+		resp = h.HandleSummits(r)
 	case "top":
 		if r.Method != http.MethodGet {
 			resp = methodNotAllowedError

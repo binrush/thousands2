@@ -60,48 +60,61 @@ func MockDatabase(t *testing.T) *Database {
 func TestSummitsTableHandler(t *testing.T) {
 	db := MockDatabase(t)
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
+	sm := scs.New()
+	sm.Store = &MockSessionStore{}
 
 	if err := LoadSummits(conf.Datadir, db); err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	req, err := http.NewRequest("GET", "/summits", nil)
-	if err != nil {
-		t.Fatal(err)
-		return
+	api := sm.LoadAndSave(&Api{Config: conf, DB: db, SM: sm})
+
+	cases := []struct {
+		cookie                  *http.Cookie
+		expectedResonseFilename string
+	}{
+		{nil, "summits-table-expected.json"},
+		{
+			&http.Cookie{Name: "session", Value: "mock_session_token"},
+			"summits-table-expected-authenticated.json",
+		},
 	}
+	for _, tt := range cases {
+		rr := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/summits", nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if tt.cookie != nil {
+			req.AddCookie(tt.cookie)
+		}
 
-	rr := httptest.NewRecorder()
+		api.ServeHTTP(rr, req)
 
-	api := Api{Config: conf, DB: db}
+		if status := rr.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+			return
+		}
 
-	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-	// directly and pass in our Request and ResponseRecorder.
-	api.ServeHTTP(rr, req)
-
-	// Check the status code is what we expect.
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-		return
-	}
-
-	// Check the response body is what we expect.
-	expected, err := ioutil.ReadFile("testdata/summits-table-expected.json")
-	if err != nil {
-		t.Errorf("Failed to read expected json data: %v", err)
-		return
-	}
-	expected_str := string(expected)
-	areEqual, err := AreEqualJSON(expected_str, rr.Body.String())
-	if err != nil {
-		fmt.Println("Error comparing response", err.Error())
-		return
-	}
-	if !areEqual {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.String(), expected_str)
+		expected, err := ioutil.ReadFile("testdata/" + tt.expectedResonseFilename)
+		if err != nil {
+			t.Errorf("Failed to read expected json data: %v", err)
+			return
+		}
+		expectedStr := string(expected)
+		actualStr := rr.Body.String()
+		areEqual, err := AreEqualJSON(expectedStr, actualStr)
+		if err != nil {
+			t.Errorf("Error comparing response: (%v): %v", actualStr, err)
+			return
+		}
+		if !areEqual {
+			t.Errorf("handler returned unexpected body: got %v want %v",
+				actualStr, expectedStr)
+		}
 	}
 }
 

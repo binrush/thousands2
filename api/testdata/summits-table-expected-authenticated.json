@@ -22,7 +22,7 @@
       "visitors": 6,
       "rank": 1,
       "is_main": true,
-      "climbed": false
+      "climbed": true
     },
     {
       "id": "kurkak",
@@ -34,7 +34,7 @@
       "visitors": 10,
       "rank": 4,
       "is_main": true,
-      "climbed": false
+      "climbed": true
     },
     {
       "id": "malinovaja",
@@ -46,7 +46,7 @@
       "visitors": 2,
       "rank": 2,
       "is_main": false,
-      "climbed": false
+      "climbed": true
     }
   ]
 }

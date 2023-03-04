@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"golang.org/x/oauth2"
@@ -19,6 +20,31 @@ const (
 	MockAccessToken  = "mock_access_token"
 	MockOauthUserId  = "2343"
 )
+
+type MockSessionStore struct {
+}
+
+func (mss *MockSessionStore) Delete(token string) error {
+	return nil
+}
+
+func (mss *MockSessionStore) Find(token string) (b []byte, found bool, err error) {
+	if token != "mock_session_token" {
+		return nil, false, nil
+	}
+	mockData := make(map[string]interface{})
+	mockData[UserIdKey] = int64(5)
+	codec := scs.GobCodec{}
+	res, err := codec.Encode(time.Now().Add(24*time.Hour), mockData)
+	if err != nil {
+		panic("Failed to encode mock data")
+	}
+	return res, true, nil
+}
+
+func (mss *MockSessionStore) Commit(token string, b []byte, expiry time.Time) error {
+	return nil
+}
 
 func Redirections(resp *http.Response) []string {
 	history := []string{}

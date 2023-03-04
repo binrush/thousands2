@@ -59,6 +59,7 @@ type SummitsTableItem struct {
 	Visitors  int     `json:"visitors"`
 	Rank      int     `json:"rank"`
 	IsMain    bool    `json:"is_main"`
+	Climbed   bool    `json:"climbed"`
 }
 
 type SummitsTable struct {
@@ -219,7 +220,7 @@ func LoadSummits(dataDir string, db *Database) error {
 	return nil
 }
 
-func FetchSummitsTable(db *Database) (*SummitsTable, error) {
+func FetchSummits(db *Database, userId int64) (*SummitsTable, error) {
 	summits := make([]SummitsTableItem, 0)
 	query := `SELECT s.id, s.name, s.height, s.lat, r.name, r.id, COUNT(c.user_id), 
 			ROW_NUMBER() OVER (ORDER BY s.height DESC) as rank,
@@ -234,14 +235,18 @@ func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 						ON smtsg.ridge_id=smts.ridge_id
 						AND smts.height=smtsg.maxheight 
 					WHERE id=s.id
-			) AS is_main
+			) AS is_main,
+			EXISTS(
+				SELECT * FROM climbs
+				WHERE summit_id=s.id AND user_id = ?
+			) as climbed
 		FROM ridges r 
 			INNER JOIN summits s ON r.id = s.ridge_id
 			LEFT JOIN climbs c ON c.summit_id = s.id
 		GROUP BY s.id, s.name, s.height, s.lat, r.name
 		ORDER BY s.id
 	`
-	rows, err := db.Pool.Query(query)
+	rows, err := db.Pool.Query(query, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +255,8 @@ func FetchSummitsTable(db *Database) (*SummitsTable, error) {
 		var s SummitsTableItem
 		err := rows.Scan(
 			&s.Id, &s.Name, &s.Height, &s.Lat,
-			&s.RidgeName, &s.RidgeId, &s.Visitors, &s.Rank, &s.IsMain,
+			&s.RidgeName, &s.RidgeId, &s.Visitors,
+			&s.Rank, &s.IsMain, &s.Climbed,
 		)
 		if err != nil {
 			return nil, err
