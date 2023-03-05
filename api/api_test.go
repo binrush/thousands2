@@ -136,16 +136,22 @@ func TestHandlersClientErrors(t *testing.T) {
 		{"/auth/authorized/vk/123", http.StatusNotFound},
 		{"/auth/authorized", http.StatusNotFound},
 		{"/auth/randomendpoint", http.StatusNotFound},
+		{"/api/user/me", http.StatusUnauthorized},
+		{"/api/user/", http.StatusNotFound},
+		{"/api/user/abcd", http.StatusNotFound},
+		{"/api/user/1/check", http.StatusNotFound},
+		{"/api/user/123", http.StatusNotFound},
 	}
-	conf := &RuntimeConfig{Datadir: "testdata/summits"}
-	api := Api{Config: conf}
-	as := AuthServer{}
+	db := MockDatabase(t)
 	sm := scs.New()
-	app := &App{
+	conf := &RuntimeConfig{Datadir: "testdata/summits"}
+	api := Api{Config: conf, DB: db, SM: sm}
+	as := AuthServer{DB: db, SM: sm}
+	app := sm.LoadAndSave(&App{
 		Api:        &api,
 		AuthServer: &as,
 		SM:         sm,
-	}
+	})
 
 	for _, tt := range cases {
 
@@ -176,6 +182,7 @@ func TestHandlersHappyPath(t *testing.T) {
 		{"/summit/malidak/kirel", "summit-1.json"},
 		{"/summit/stolby/1021", "summit-2.json"},
 		{"/summit/malidak/malinovaja", "summit-3.json"},
+		{"/user/5", "user-1.json"},
 	}
 	db := MockDatabase(t)
 	defer db.Pool.Close()

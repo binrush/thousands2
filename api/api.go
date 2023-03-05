@@ -14,6 +14,7 @@ const (
 	internalServerErrorMsg = "Internal server error"
 	notFoundMsg            = "Path not found"
 	methodNotAllowedMsg    = "Method not allowed"
+	authRequiredMsg        = "Authentication required"
 )
 
 type ApiError struct {
@@ -28,6 +29,7 @@ func (e *ApiError) Error() string {
 var pathNotFoundError = &ApiError{notFoundMsg, http.StatusNotFound}
 var serverError = &ApiError{internalServerErrorMsg, http.StatusInternalServerError}
 var methodNotAllowedError = &ApiError{methodNotAllowedMsg, http.StatusInternalServerError}
+var authRequired = &ApiError{authRequiredMsg, http.StatusUnauthorized}
 
 type Api struct {
 	Config *RuntimeConfig
@@ -101,6 +103,43 @@ func (h *Api) HandleTop(r *http.Request) interface{} {
 	return top
 }
 
+func (h *Api) HandleUser(r *http.Request) interface{} {
+	if r.URL.Path == "/" {
+		return pathNotFoundError
+	}
+	var userIdStr string
+	userIdStr, r.URL.Path = ShiftPath(r.URL.Path)
+	if r.URL.Path != "/" {
+		return pathNotFoundError
+	}
+
+	var userId int64
+	var err error
+	if userIdStr == "me" {
+		// return data for logged in user
+		userId = h.SM.GetInt64(r.Context(), UserIdKey)
+		if userId == 0 {
+			// not authenticated
+			return authRequired
+		}
+	} else {
+		userId, err = strconv.ParseInt(userIdStr, 10, 64)
+		if err != nil {
+			return pathNotFoundError
+		}
+	}
+	user, err := GetUserById(h.DB, userId)
+	if err != nil {
+		log.Printf("Failed to get user %d by ID: %v", userId, err)
+		return serverError
+	}
+	if user == nil {
+		log.Printf("Unknown user id %d", userId)
+		return pathNotFoundError
+	}
+	return user
+}
+
 func (h *Api) HandleClimb(r *http.Request) interface{} {
 	switch r.Method {
 	case http.MethodPut:
@@ -140,13 +179,15 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		resp = h.HandleTop(r)
 	case "climb":
 		resp = h.HandleClimb(r)
+	case "user":
+		resp = h.HandleUser(r)
 	default:
 		resp = pathNotFoundError
 	}
 
 	jsonResp, err := json.Marshal(resp)
 	if err != nil {
-		log.Printf("Error marshalling top: %v", err)
+		log.Printf("Error marshalling response: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}

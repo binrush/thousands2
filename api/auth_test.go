@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
@@ -238,13 +239,16 @@ func NewMockOauthServer(mockOauthHandler MockOauthHandler) *httptest.Server {
 }
 
 func NewApp(mockOauthProvider Provider, t *testing.T) *App {
+	db := MockDatabase(t)
 	providers := make(AuthProviders)
 	providers["mock"] = mockOauthProvider
 	sm := scs.New()
-	as := AuthServer{Providers: providers, DB: MockDatabase(t), SM: sm}
+	as := AuthServer{Providers: providers, DB: db, SM: sm}
+	api := &Api{DB: db, SM: sm}
 	return &App{
 		AuthServer: &as,
 		SM:         sm,
+		Api:        api,
 	}
 }
 
@@ -338,7 +342,45 @@ func TestAuthFlow(t *testing.T) {
 		if resp.StatusCode != tt.expectedStatusCode {
 			t.Errorf("Unexpected status code: %d, expected %d", resp.StatusCode, tt.expectedStatusCode)
 		}
-		// TODO: call corresponding endpoint to check if account is created
+		profileEndpoint := "/api/user/me"
+		resp, err = client.Get(appServer.URL + profileEndpoint)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		if tt.expectedUrlPath == "/profile" {
+			// registration successful
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Unexpected status code %d from %s, expected %d",
+					resp.StatusCode, profileEndpoint, http.StatusOK)
+			}
+			var user User
+			err = json.NewDecoder(resp.Body).Decode(&user)
+			if err != nil {
+				t.Errorf("Failed to decode response: %v", err)
+			}
+			if user.Name != "Mock Mock" {
+				t.Errorf("Unexpected user name for new user: %v", user.Name)
+			}
+			if (user.Src != 1) || (user.OauthId != "2343") {
+				t.Errorf("Unexpected oauth data of new user: Src=%v, oauthId=%v", user.Src, user.OauthId)
+			}
+		} else {
+			// registration error
+			if resp.StatusCode != http.StatusUnauthorized {
+				t.Errorf("Unexpected status code %d from %s, expected %d",
+					resp.StatusCode, profileEndpoint, http.StatusUnauthorized)
+			}
+			var apiError ApiError
+			err = json.NewDecoder(resp.Body).Decode(&apiError)
+			if err != nil {
+				t.Errorf("Failed to decode response: %v", err)
+			}
+			if apiError.Message != "Authentication required" {
+				t.Errorf("Unexpected error message returned: %v", apiError.Message)
+			}
+		}
 	}
 }
 

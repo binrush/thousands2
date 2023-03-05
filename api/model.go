@@ -367,18 +367,24 @@ func CreateUser(db *Database, Name, OauthId string, Src int /*, Image, Preview s
 	return userId, nil
 }
 
-func GetUser(db *Database, oauthId string, src int) (*User, error) {
-	query := "SELECT id, name FROM users WHERE oauth_id=? AND src=?"
+func getUser(row *sql.Row) (*User, error) {
 	var user User
-	row := db.Pool.QueryRow(query, oauthId, src)
-	err := row.Scan(&user.Id, &user.Name)
+	err := row.Scan(&user.Id, &user.Name, &user.OauthId, &user.Src)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	user.OauthId = oauthId
-	user.Src = src
 	return &user, nil
+}
+
+func GetUserById(db *Database, id int64) (*User, error) {
+	query := "SELECT id, name, oauth_id, src FROM users WHERE id=?"
+	return getUser(db.Pool.QueryRow(query, id))
+}
+
+func GetUser(db *Database, oauthId string, src int) (*User, error) {
+	query := "SELECT id, name, oauth_id, src FROM users WHERE oauth_id=? AND src=?"
+	return getUser(db.Pool.QueryRow(query, oauthId, src))
 }
