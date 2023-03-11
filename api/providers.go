@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -82,14 +84,14 @@ func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx cont
 		return 0, err
 	}
 	defer resp.Body.Close()
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, err
 	}
 	var vkResponse VKUserGetResponse
 	err = json.Unmarshal(content, &vkResponse)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("Failed to unmarshal response from VK (%s): %v", content, err)
 	}
 	if vkResponse.Error != nil {
 		// Handle error response from VK API
@@ -104,7 +106,45 @@ func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx cont
 	if err != nil {
 		return 0, err
 	}
+	// load images. If download failed, just log it and proceed
+	if userData.HasPhoto > 0 {
+		/*images := []struct {
+			url string
+
+		}*/
+		for _, img := range []struct {
+			url  string
+			size string
+		}{
+			{userData.Photo50, ImageSmall},
+			{userData.Photo200Orig, ImageMedium},
+		} {
+			if err = downloadImage(*oauthClient, db, img.url, img.size, userId); err != nil {
+				log.Printf("Failed to load image for user %d: %v", userId, err)
+			}
+		}
+	}
 	return userId, nil
+}
+
+func downloadImage(client http.Client, db *Database, url string, size string, userId int64) error {
+	resp, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("Failed to download image %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Failed to download image %s: unexpected status %d", url, resp.StatusCode)
+	}
+	img, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("Failed to read image %s: %v", url, err)
+	}
+	err = UpdateUserImage(db, userId, size, img)
+	if err != nil {
+		return fmt.Errorf("Failed to store image %s in database: %v", url, err)
+	}
+	return nil
 }
 
 func GetAuthProviders(baseUrl string) AuthProviders {

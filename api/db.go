@@ -3,9 +3,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"sync"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Database struct {
@@ -26,10 +27,15 @@ var migrations []Migration = []Migration{
                 id INTEGER PRIMARY KEY, 
                 oauth_id TEXT NOT NULL, 
                 src INTEGER NOT NULL, 
-                name TEXT NOT NULL, 
-                image TEXT,
-                preview TEXT
+                name TEXT NOT NULL 
             )`,
+			`CREATE TABLE user_images (
+				user_id INTEGER NOT NULL,
+				size TEXT NOT NULL,
+				data BLOB,
+				PRIMARY KEY (user_id, size),
+				FOREIGN KEY (user_id) REFERENCES users(id)
+			)`,
 			`CREATE TABLE climbs (
                 user_id INTEGER NOT NULL, 
                 summit_id TEXT NOT NULL, 

@@ -5,8 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -68,15 +72,15 @@ func TestVkGetUserId(t *testing.T) {
 	}
 }
 
-func MockVKHandler(w http.ResponseWriter, r *http.Request) {
+func HandleUserGet(w http.ResponseWriter, r *http.Request) {
 	successfulResponse := `
 	{
 		"response": [
 			{
 				"id": %d,
-				"photo_200_orig": "https://sun6-22.userapi.com/s/v1/if1/CbhIhl0F_mmMhIjEpBhuCx0T5sw9Ffx681zn9UE2oKv4HjjqTacNxxlTWWCn2oCeiNYjDpjb.jpg?size=200x291&quality=96&crop=265,36,233,340&ava=1",
+				"photo_200_orig": "http://%s/img/ava_m.jpg",
 				"has_photo": 1,
-				"photo_50": "https://sun6-22.userapi.com/s/v1/if1/jUZc3dhJRtIlqrcrbMaSTDF14FJ-M5QG5JWggSdi4iuB0M5p4UvRbnQfaR4HSDi-ExI8E1j0.jpg?size=50x50&quality=96&crop=281,47,201,201&ava=1",
+				"photo_50": "http://%s/img/ava_s.jpg",
 				"first_name": "Climbing",
 				"last_name": "User",
 				"can_access_closed": true,
@@ -107,13 +111,38 @@ func MockVKHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	`
+	if r.Header.Get("Authorization") != "Bearer "+MockAccessToken {
+		fmt.Fprintf(w, errorResponse)
+	} else {
+		userId, _ := strconv.Atoi(MockOauthUserId)
+		fmt.Fprintf(w, successfulResponse, userId, r.Host, r.Host)
+	}
+
+}
+
+func HandleImage(w http.ResponseWriter, r *http.Request) {
+	_, imgName := ShiftPath(r.URL.Path)
+	f, err := os.Open(path.Join("testdata", imgName))
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	w.Header().Set("Content-Type", "image/jpeg")
+
+	_, err = io.Copy(w, f)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func MockVKHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/method/users.get" {
-		if r.Header.Get("Authorization") != "Bearer "+MockAccessToken {
-			fmt.Fprintf(w, errorResponse)
-		} else {
-			userId, _ := strconv.Atoi(MockOauthUserId)
-			fmt.Fprintf(w, successfulResponse, userId)
-		}
+		HandleUserGet(w, r)
+		return
+	}
+	if (r.URL.Path == "/img/ava_s.jpg") || (r.URL.Path == "/img/ava_m.jpg") {
+		HandleImage(w, r)
 		return
 	}
 	http.Error(w, "404", http.StatusNotFound)
@@ -145,6 +174,28 @@ func TestVKRegister(t *testing.T) {
 	}
 	if *user != expectedUser {
 		t.Fatalf("Unexpected user created: %v, expected %v", *user, expectedUser)
+	}
+	cases := []struct {
+		size     string
+		expected string
+	}{
+		{ImageSmall, "testdata/ava_s.jpg"},
+		{ImageMedium, "testdata/ava_m.jpg"},
+	}
+	for _, tt := range cases {
+		img, err := GetUserImage(db, userId, tt.size)
+		f, err := os.Open(tt.expected)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		expectedImg, err := io.ReadAll(f)
+		if err != nil {
+			panic(err)
+		}
+		if !reflect.DeepEqual(img, expectedImg) {
+			t.Fatalf("Unexpected image stored for user %d", userId)
+		}
 	}
 }
 

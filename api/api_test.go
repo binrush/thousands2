@@ -239,5 +239,4 @@ func TestHandlersHappyPath(t *testing.T) {
 			continue
 		}
 	}
-
 }

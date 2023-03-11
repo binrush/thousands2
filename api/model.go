@@ -14,6 +14,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	ImageLarge  = "L"
+	ImageMedium = "M"
+	ImageSmall  = "S"
+)
+
 type Ridge struct {
 	Id    string `json:"id"`
 	Name  string `json:"name"`
@@ -67,11 +73,10 @@ type SummitsTable struct {
 }
 
 type TopItem struct {
-	UserId      int    `json:"user_id"`
-	UserName    string `json:"user_name"`
-	UserPreview string `json:"user_preview"`
-	ClimbsNum   int    `json:"climbs_num"`
-	Place       int    `json:"place"`
+	UserId    int    `json:"user_id"`
+	UserName  string `json:"user_name"`
+	ClimbsNum int    `json:"climbs_num"`
+	Place     int    `json:"place"`
 }
 
 type Top struct {
@@ -85,8 +90,6 @@ type User struct {
 	OauthId string
 	Src     int
 	Name    string
-	Image   string
-	Preview string
 }
 
 func LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {
@@ -321,12 +324,11 @@ func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
 	}
 	result.TotalPages = totalItems/itemsPerPage + 1
 	result.Items = make([]TopItem, 0)
-	query = `SELECT users.id, users.name, users.preview, 
-            count(*) as climbs, 
+	query = `SELECT users.id, users.name, count(*) as climbs, 
             MAX(coalesce(day, 32) | (coalesce(month, 13) << 8) | (coalesce(year, 2100) << 16)) 
                 AS last_climb 
         FROM users INNER JOIN climbs ON users.id=climbs.user_id 
-        GROUP BY users.id, users.name, users.preview 
+        GROUP BY users.id, users.name
         ORDER BY climbs DESC, last_climb ASC 
         LIMIT ? OFFSET ?`
 	offset := (page - 1) * itemsPerPage
@@ -339,7 +341,7 @@ func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
 	for rows.Next() {
 		var ti TopItem
 		var lastClimb int
-		err := rows.Scan(&ti.UserId, &ti.UserName, &ti.UserPreview, &ti.ClimbsNum, &lastClimb)
+		err := rows.Scan(&ti.UserId, &ti.UserName, &ti.ClimbsNum, &lastClimb)
 		if err != nil {
 			return nil, err
 		}
@@ -387,4 +389,32 @@ func GetUserById(db *Database, id int64) (*User, error) {
 func GetUser(db *Database, oauthId string, src int) (*User, error) {
 	query := "SELECT id, name, oauth_id, src FROM users WHERE oauth_id=? AND src=?"
 	return getUser(db.Pool.QueryRow(query, oauthId, src))
+}
+
+func UpdateUserImage(db *Database, userId int64, size string, data []byte) error {
+	db.WriteLock.Lock()
+	defer db.WriteLock.Unlock()
+
+	query := `INSERT INTO user_images (user_id, size, data) VALUES (?, ?, ?)
+	ON CONFLICT (user_id, size) DO UPDATE SET data=excluded.data
+	`
+	_, err := db.Pool.Exec(query, userId, size, data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetUserImage(db *Database, userId int64, size string) ([]byte, error) {
+	query := "SELECT data FROM user_images WHERE user_id=? AND size=?"
+	var img []byte
+	row := db.Pool.QueryRow(query, userId, size)
+	err := row.Scan(&img)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
 }
