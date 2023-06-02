@@ -52,7 +52,6 @@ func (h *Api) HandleSummit(r *http.Request) interface{} {
 	if r.URL.Path != "/" {
 		return pathNotFoundError
 	}
-
 	summit, err := FetchSummit(h.DB, ridgeId, summitId)
 	if err != nil {
 		log.Printf("Failed to fetch summit %s/%s: %v", ridgeId, summitId, err)
@@ -61,7 +60,30 @@ func (h *Api) HandleSummit(r *http.Request) interface{} {
 	if summit == nil { // summit not found
 		return pathNotFoundError
 	}
-	return summit
+	switch r.Method {
+	case http.MethodGet:
+		return summit
+	case http.MethodPut:
+		return h.HandleUpdateClimb(r, summit)
+	default:
+		return methodNotAllowedError
+	}
+}
+
+func (h *Api) HandleUpdateClimb(r *http.Request, summit *Summit) interface{} {
+	userId := h.SM.GetInt64(r.Context(), UserIdKey)
+	if userId == 0 { // not authenticated
+		return authRequired
+	}
+	comment := r.PostFormValue("comment")
+	date := r.PostFormValue("date")
+	var ied InexactDate
+	err := ied.Parse(date)
+	if err != nil {
+		// return validation error
+	}
+	err = UpdateClimb(h.DB, summit.Id, userId, ied, comment)
+	return nil
 }
 
 func (h *Api) HandleSummits(r *http.Request) interface{} {
@@ -140,19 +162,6 @@ func (h *Api) HandleUser(r *http.Request) interface{} {
 	return user
 }
 
-func (h *Api) HandleClimb(r *http.Request) interface{} {
-	switch r.Method {
-	case http.MethodPut:
-		// edit existing climb
-		return nil
-	case http.MethodDelete:
-		// delete climb
-		return nil
-	default:
-		return methodNotAllowedError
-	}
-}
-
 func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var head string
 	head, r.URL.Path = ShiftPath(r.URL.Path)
@@ -160,10 +169,6 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch head {
 	case "summit":
-		if r.Method != http.MethodGet {
-			resp = methodNotAllowedError
-			break
-		}
 		resp = h.HandleSummit(r)
 	case "summits":
 		if r.Method != http.MethodGet {
@@ -177,8 +182,6 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		resp = h.HandleTop(r)
-	case "climb":
-		resp = h.HandleClimb(r)
 	case "user":
 		resp = h.HandleUser(r)
 	default:

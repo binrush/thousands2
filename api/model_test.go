@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -33,6 +34,44 @@ func TestLoadSummits(t *testing.T) {
 			if numRows > 0 {
 				t.Fatalf("Unexpected rows in %s table: %v (expected 0)", tbl, numRows)
 			}
+		}
+	}
+}
+
+func TestInexactDateParseValid(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected InexactDate
+	}{
+		{"", InexactDate{0, 0, 0}},
+		{"2010", InexactDate{2010, 0, 0}},
+		{"2.2010", InexactDate{2010, 2, 0}},
+		{"12.06.2014", InexactDate{2014, 6, 12}},
+	}
+	for _, tt := range cases {
+		var id InexactDate
+		err := id.Parse(tt.input)
+		if err != nil {
+			t.Errorf("Unexpected error while parsing date string: %v", err)
+		}
+		if !reflect.DeepEqual(id, tt.expected) {
+			t.Errorf("Unexpected parsing result: %v, expected %v", id, tt.expected)
+		}
+	}
+}
+
+func TestInexactDateParseInvalid(t *testing.T) {
+	cases := []string{
+		"abc", "1..2022", "1.1.02.2022", "13.2022", "29.2.2015",
+	}
+	for _, tt := range cases {
+		var id InexactDate
+		err := id.Parse(tt)
+		if err == nil {
+			t.Errorf("Error expected while parsing %v", tt)
+		}
+		if !reflect.DeepEqual(id, InexactDate{}) {
+			t.Errorf("InexactData should not be changed in case of parsing error, got: %v", id)
 		}
 	}
 }

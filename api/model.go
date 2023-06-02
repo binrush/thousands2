@@ -9,7 +9,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -19,6 +21,76 @@ const (
 	ImageMedium = "M"
 	ImageSmall  = "S"
 )
+
+func toSqlNullInt64(value int64) sql.NullInt64 {
+	var result sql.NullInt64
+	if value == 0 {
+		result.Valid = false
+		return result
+	}
+	result.Valid = true
+	result.Int64 = value
+	return result
+}
+
+type InexactDate struct {
+	Year  int64
+	Month int64
+	Day   int64
+}
+
+func (id *InexactDate) parseString(date string) ([]int64, error) {
+	if date == "" {
+		return []int64{}, nil
+	}
+	parts := strings.Split(date, ".")
+	if len(parts) > 3 {
+		return nil, fmt.Errorf("Invalid date format: %s", date)
+	}
+	partsInt := make([]int64, len(parts))
+	for i, p := range parts {
+		pi, err := strconv.ParseInt(p, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("Invalid date format: %s", date)
+		}
+		partsInt[i] = pi
+	}
+	return partsInt, nil
+}
+
+func (id *InexactDate) Parse(date string) error {
+	parts, err := id.parseString(date)
+	if err != nil {
+		return err
+	}
+	dateFormat := "2006-01-02"
+	var validationValue string
+	var year, month, day int64
+	switch len(parts) {
+	case 0:
+		id.Year, id.Month, id.Day = 0, 0, 0
+		return nil
+	case 1:
+		year, month, day = parts[0], 0, 0
+		validationValue = fmt.Sprintf("%04d-01-01", year)
+	case 2:
+		year, month, day = parts[1], parts[0], 0
+		validationValue = fmt.Sprintf("%04d-%02d-01", year, month)
+	case 3:
+		year, month, day = parts[2], parts[1], parts[0]
+		validationValue = fmt.Sprintf("%04d-%02d-%02d", year, month, day)
+	default:
+		// should not happen
+		return fmt.Errorf("Invalid data: %v", parts)
+	}
+	_, err = time.Parse(dateFormat, validationValue)
+	if err != nil {
+		return fmt.Errorf("Failed to parse inexact date %s: %v", date, err)
+	}
+
+	id.Year, id.Month, id.Day = year, month, day
+	return nil
+}
 
 type Ridge struct {
 	Id    string `json:"id"`
@@ -417,4 +489,23 @@ func GetUserImage(db *Database, userId int64, size string) ([]byte, error) {
 		return nil, err
 	}
 	return img, nil
+}
+
+func UpdateClimb(db *Database, summitId string, userId int64, date InexactDate, comment string) error {
+	db.WriteLock.Lock()
+	defer db.WriteLock.Unlock()
+
+	query := `INSERT INTO climbs (
+		user_id, summit_id, year, month, day, comment
+	) VALUES (?, ?, ?, ?, ?, ?)
+	ON CONFLICT (user_id, summit_id) 
+	DO UPDATE SET year=excluded.year, month=excluded.month, day=excluded.day, comment=excluded.comment
+	`
+	_, err := db.Pool.Exec(
+		query, userId, summitId,
+		toSqlNullInt64(date.Year), toSqlNullInt64(date.Month), toSqlNullInt64(date.Day), comment)
+	if err != nil {
+		return err
+	}
+	return nil
 }
