@@ -274,7 +274,7 @@ func TestAuthFlow(t *testing.T) {
 				MockOauthUserId,
 			},
 			&MockProviderSuccess{},
-			"/profile",
+			"/user/me",
 			404,
 		},
 		{
@@ -349,7 +349,7 @@ func TestAuthFlow(t *testing.T) {
 		}
 		defer resp.Body.Close()
 
-		if tt.expectedUrlPath == "/profile" {
+		if tt.expectedUrlPath == "/user/me" {
 			// registration successful
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("Unexpected status code %d from %s, expected %d",
@@ -412,29 +412,54 @@ func TestAuthFlowUserExists(t *testing.T) {
 	defer resp.Body.Close()
 
 	// Check that we were finally redirected to expected endpoint
-	expectedUrlPath := "/profile"
+	expectedUrlPath := "/user/me"
 	if resp.Request.URL.Path != expectedUrlPath {
 		t.Fatalf("Unexpected url path: %s, expected %s", resp.Request.URL.Path, expectedUrlPath)
-	}
-	expectedStatusCode := http.StatusNotFound
-	if resp.StatusCode != expectedStatusCode {
-		t.Fatalf("Unexpected status code: %d, expected %d", resp.StatusCode, expectedStatusCode)
 	}
 	requestHistory := Redirections(resp)
 	if len(requestHistory) != 4 {
 		t.Fatalf("Expected full oauth flow (4 steps), got: %v", requestHistory)
 	}
 
-	// Check that logged user is redirected directly to /profile
-	client.Get(appServer.URL + "/auth/oauth/mock")
+	// Check that logged user is redirected directly to /user/me
+	resp, err = client.Get(appServer.URL + "/auth/oauth/mock")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if resp.Request.URL.Path != expectedUrlPath {
 		t.Fatalf("Unexpected url path: %s, expected %s", resp.Request.URL.Path, expectedUrlPath)
 	}
-	if resp.StatusCode != expectedStatusCode {
-		t.Fatalf("Unexpected status code: %d, expected %d", resp.StatusCode, expectedStatusCode)
-	}
 	requestHistory = Redirections(resp)
-	if len(requestHistory) != 4 {
-		t.Fatalf("Expected redirect to /profile (2 steps), got: %v", requestHistory)
+	if len(requestHistory) != 2 {
+		t.Fatalf("Expected redirect to /user/me (2 steps), got: %v", requestHistory)
+	}
+
+	// check that profile is returned for authrorized user
+	profileUrl := "/api/user/me"
+	resp, err = client.Get(appServer.URL + profileUrl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unexpected status code %d from %s, expected %d",
+			resp.StatusCode, profileUrl, http.StatusUnauthorized)
+	}
+
+	// Check logout
+	resp, err = client.Get(appServer.URL + "/auth/logout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedUrlPath = "/"
+	if resp.Request.URL.Path != expectedUrlPath {
+		t.Fatalf("Unexpected url path: %s, expected %s", resp.Request.URL.Path, expectedUrlPath)
+	}
+	resp, err = client.Get(appServer.URL + profileUrl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("Unexpected status code %d from %s, expected %d",
+			resp.StatusCode, profileUrl, http.StatusUnauthorized)
 	}
 }
