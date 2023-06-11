@@ -4,13 +4,14 @@ import { RouterLink, RouterView } from 'vue-router'
 </script>
 
 <template>
-<div class="container m-5">
+<div class="h-screen flex flex-col">
   <header>
-      <nav class="p-1">
-        <ul>
-            <li class="inline px-1"><RouterLink to="/">Вершины</RouterLink></li> 
-            <li class="inline px-1"><RouterLink to="/about">О проекте</RouterLink></li>
-            <li class="inline px-1"><a href="/auth/oauth/vk">Вход</a></li>
+      <nav class="bg-gray-800 text-white py-4 px-8">
+        <ul class="flex space-x-4">
+            <li class="hover:text-gray-300"><RouterLink to="/">Вершины</RouterLink></li> 
+            <li class="hover:text-gray-300"><RouterLink to="/map">Карта</RouterLink></li> 
+            <li class="hover:text-gray-300"><RouterLink to="/about">О проекте</RouterLink></li>
+            <li class="hover:text-gray-300"><a href="/auth/oauth/vk">Вход</a></li>
         </ul>
       </nav>
   </header>

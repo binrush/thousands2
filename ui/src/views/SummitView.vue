@@ -9,7 +9,7 @@ const summit = ref(null)
 
 async function loadSummit() {
     const res = await fetch(
-        `http://localhost:5000/api/summit/${route.params.ridge_id}/${route.params.summit_id}`)
+        `/api/summit/${route.params.ridge_id}/${route.params.summit_id}`)
     if (res.status === 404) {
         return
     }

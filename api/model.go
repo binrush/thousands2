@@ -132,8 +132,10 @@ type SummitsTableItem struct {
 	Height int     `json:"height"`
 	// Latitude is needed for sorting
 	Lat       float32 `json:"lat"`
+	Lng       float32 `json:"lng"`
 	RidgeName string  `json:"ridge"`
 	RidgeId   string  `json:"ridge_id"`
+	Color     string  `json:"color"`
 	Visitors  int     `json:"visitors"`
 	Rank      int     `json:"rank"`
 	IsMain    bool    `json:"is_main"`
@@ -297,7 +299,7 @@ func LoadSummits(dataDir string, db *Database) error {
 
 func FetchSummits(db *Database, userId int64) (*SummitsTable, error) {
 	summits := make([]SummitsTableItem, 0)
-	query := `SELECT s.id, s.name, s.height, s.lat, r.name, r.id, COUNT(c.user_id), 
+	query := `SELECT s.id, s.name, s.height, s.lat, s.lng, r.name, r.id, r.color, COUNT(c.user_id), 
 			ROW_NUMBER() OVER (ORDER BY s.height DESC) as rank,
 			EXISTS(
 				SELECT * FROM 
@@ -329,8 +331,8 @@ func FetchSummits(db *Database, userId int64) (*SummitsTable, error) {
 	for rows.Next() {
 		var s SummitsTableItem
 		err := rows.Scan(
-			&s.Id, &s.Name, &s.Height, &s.Lat,
-			&s.RidgeName, &s.RidgeId, &s.Visitors,
+			&s.Id, &s.Name, &s.Height, &s.Lat, &s.Lng,
+			&s.RidgeName, &s.RidgeId, &s.Color, &s.Visitors,
 			&s.Rank, &s.IsMain, &s.Climbed,
 		)
 		if err != nil {
