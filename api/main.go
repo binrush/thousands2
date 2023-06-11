@@ -10,10 +10,6 @@ import (
 	"github.com/alexedwards/scs/v2"
 )
 
-const (
-	BaseUrl = "http://dev.thousands.su:5000"
-)
-
 func ShiftPath(p string) (head, tail string) {
 	p = path.Clean("/" + p)
 	i := strings.Index(p[1:], "/") + 1
@@ -78,6 +74,8 @@ func main() {
 	}
 	log.Printf("Summits data loaded")
 
+	baseUrl := os.Getenv("BASE_URL")
+
 	sm := scs.New()
 	app := &App{
 		Api: &Api{
@@ -86,7 +84,7 @@ func main() {
 			SM:     sm,
 		},
 		AuthServer: &AuthServer{
-			Providers: GetAuthProviders(BaseUrl),
+			Providers: GetAuthProviders(baseUrl),
 			DB:        db,
 			SM:        sm,
 		},

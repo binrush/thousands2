@@ -160,10 +160,10 @@ type Top struct {
 }
 
 type User struct {
-	Id      int64
-	OauthId string
-	Src     int
-	Name    string
+	Id      int64  `json:"id"`
+	OauthId string `json:"oauth_id"`
+	Src     int    `json:"src"`
+	Name    string `json:"name"`
 }
 
 func LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {

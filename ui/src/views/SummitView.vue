@@ -23,6 +23,7 @@ onMounted(function () {
 </script>
 
 <template>
+  <div class="w-full max-w-screen-md mx-auto">
     <div v-if="summit">
         <h1 class="text-xl font-bold">{{ summit.name ? summit.name : summit.height }}</h1>
         <dl>
@@ -51,6 +52,7 @@ onMounted(function () {
         </dl>
     </div>
     <div v-else>Загрузка...</div>
+  </div>
 </template>
 
 <style scoped>

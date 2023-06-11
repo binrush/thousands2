@@ -40,6 +40,8 @@ func (h *AuthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.RedirectToProvider(w, r)
 	case "authorized":
 		h.Authorized(w, r)
+	case "logout":
+		h.Logout(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -108,7 +110,7 @@ func (h *AuthServer) Authorized(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.SM.Put(r.Context(), UserIdKey, userId)
-	http.Redirect(w, r, "/profile", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/user/me", http.StatusTemporaryRedirect)
 }
 
 func (h *AuthServer) RedirectToProvider(w http.ResponseWriter, r *http.Request) {
@@ -130,7 +132,7 @@ func (h *AuthServer) RedirectToProvider(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if h.SM.GetInt64(r.Context(), UserIdKey) != 0 { // user already logged in
-		http.Redirect(w, r, "/profile", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/user/me", http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -139,4 +141,18 @@ func (h *AuthServer) RedirectToProvider(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(
 		w, r, provider.GetConfig().AuthCodeURL(oauthState, oauth2.AccessTypeOffline),
 		http.StatusTemporaryRedirect)
+}
+
+func (h *AuthServer) Logout(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	err := h.SM.Destroy(r.Context())
+	if err != nil {
+		log.Printf("Failed to destroy session data: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }

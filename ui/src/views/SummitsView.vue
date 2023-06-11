@@ -97,6 +97,7 @@ watch(
 </script>
 
 <template>
+  <div class="w-full max-w-screen-md mx-auto">
   <h1 class="text-xl font-bold">Все вершины Южного Урала выше тысячи метров</h1>
   <form>
     <input class="border my-1" type="text" v-model="search" placeholder="Поиск">
@@ -125,6 +126,7 @@ watch(
           <td class="border">{{ summit.visitors }}</td>
       </tr>
   </table>
+  </div>
 </template>
 
 <style>
