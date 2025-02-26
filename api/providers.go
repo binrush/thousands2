@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -130,19 +129,19 @@ func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx cont
 func downloadImage(client http.Client, db *Database, url string, size string, userId int64) error {
 	resp, err := client.Get(url)
 	if err != nil {
-		return fmt.Errorf("Failed to download image %s: %v", url, err)
+		return fmt.Errorf("failed to download image %s: %v", url, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Failed to download image %s: unexpected status %d", url, resp.StatusCode)
+		return fmt.Errorf("failed to download image %s: unexpected status %d", url, resp.StatusCode)
 	}
-	img, err := ioutil.ReadAll(resp.Body)
+	img, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Failed to read image %s: %v", url, err)
+		return fmt.Errorf("failed to read image %s: %v", url, err)
 	}
 	err = UpdateUserImage(db, userId, size, img)
 	if err != nil {
-		return fmt.Errorf("Failed to store image %s in database: %v", url, err)
+		return fmt.Errorf("failed to store image %s in database: %v", url, err)
 	}
 	return nil
 }

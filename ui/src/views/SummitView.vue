@@ -1,9 +1,10 @@
 <script setup>
 
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
 
 const summit = ref(null)
 
@@ -19,6 +20,10 @@ async function loadSummit() {
 onMounted(function () {
     loadSummit()
 })
+
+function submitClimb(e) {
+    router.push({name: "edit_climb", ridge_id: route.params.ridge_id, summit_id: route.params.summit_id})
+}
 
 </script>
 
@@ -50,6 +55,9 @@ onMounted(function () {
             <dt class="font-bold" v-if="summit.description">Дополнительная информация</dt>
             <dd v-if="summit.description">{{summit.description}}</dd>
         </dl>
+        <button @click="submitClimb" class="inline-block px-4 py-2 bg-blue-500 text-white rounded">
+            Взошли на эту вершину?
+        </button>
     </div>
     <div v-else>Загрузка...</div>
   </div>

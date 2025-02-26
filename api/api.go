@@ -83,6 +83,10 @@ func (h *Api) HandleUpdateClimb(r *http.Request, summit *Summit) interface{} {
 		// return validation error
 	}
 	err = UpdateClimb(h.DB, summit.Id, userId, ied, comment)
+	if err != nil {
+		log.Printf("Failed to update climb: %v", err)
+		return serverError
+	}
 	return nil
 }
 

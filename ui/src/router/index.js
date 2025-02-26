@@ -4,6 +4,7 @@ import SummitsView from '../views/SummitsView.vue'
 import SummitView from '../views/SummitView.vue'
 import MapView from '../views/MapView.vue'
 import UserView from '../views/UserView.vue'
+import ClimbFormView from '../views/ClimbFormView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -27,6 +28,11 @@ const router = createRouter({
       path: '/:ridge_id/:summit_id',
       name: 'summit',
       component: SummitView
+    },
+    {
+      path: '/:ridge_id/:summit_id/climb',
+      name: 'edit_climb',
+      component: ClimbFormView
     },
     {
       path: '/user/me',
