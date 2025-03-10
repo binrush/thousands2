@@ -10,10 +10,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path"
-	"reflect"
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 )
 
@@ -165,6 +165,9 @@ func TestVKRegister(t *testing.T) {
 		t.Fatalf("Registration error: %v", err)
 	}
 	user, err := GetUser(db, MockOauthUserId, 1)
+	if err != nil {
+		t.Fatalf("Failed to get user %d: %v", userId, err)
+	}
 
 	expectedUser := User{
 		Id:      userId,
@@ -184,6 +187,12 @@ func TestVKRegister(t *testing.T) {
 	}
 	for _, tt := range cases {
 		img, err := GetUserImage(db, userId, tt.size)
+		if err != nil {
+			t.Fatalf("Failed to get image for user %d: %v", userId, err)
+		}
+		assert.Equal(t, fmt.Sprintf("users/%d_%s.jpg", userId, tt.size), img)
+		// TODO: check if file is uploaded to S3
+		/*	
 		f, err := os.Open(tt.expected)
 		if err != nil {
 			panic(err)
@@ -196,6 +205,7 @@ func TestVKRegister(t *testing.T) {
 		if !reflect.DeepEqual(img, expectedImg) {
 			t.Fatalf("Unexpected image stored for user %d", userId)
 		}
+		*/
 	}
 }
 

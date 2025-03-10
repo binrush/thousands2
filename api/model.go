@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
@@ -99,7 +97,7 @@ type Ridge struct {
 }
 
 type SummitImage struct {
-	Filename string `json:"filename"`
+	Url string `json:"url"`
 	Comment  string `json:"comment"`
 }
 
@@ -169,22 +167,22 @@ type User struct {
 func LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {
 	imageStmt, err := tx.Prepare(
 		`INSERT INTO summit_images 
-			(filename, summit_id, comment) VALUES (?, ?, ?)`)
+			(url, summit_id, comment) VALUES (?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer imageStmt.Close()
 	for _, img := range images {
-		_, err = imageStmt.Exec(img.Filename, summitId, img.Comment)
+		_, err = imageStmt.Exec(img.Url, summitId, img.Comment)
 		if err != nil {
-			return fmt.Errorf("Failed to load image %s: %v", img.Filename, err)
+			return fmt.Errorf("failed to load image %s: %v", img.Url, err)
 		}
 	}
 	return nil
 }
 
 func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
-	summitDirs, err := os.ReadDir(dir)
+	summitFiles, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -197,16 +195,12 @@ func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 	}
 	defer summitsStmt.Close()
 	summitsNum := 0
-	for _, summitDir := range summitDirs {
-		if !summitDir.IsDir() {
+	for _, sf:= range summitFiles {
+		if (sf.Name() == "_meta.yaml") || sf.IsDir() {
 			continue
 		}
-		summitId := summitDir.Name()
-		if strings.HasPrefix(summitId, ".") {
-			continue
-		}
-		summitPath := path.Join(dir, summitId)
-		summitData, err := ioutil.ReadFile(path.Join(summitPath, "meta.yaml"))
+		summitId := strings.TrimSuffix(sf.Name(), ".yaml")
+		summitData, err := os.ReadFile(path.Join(dir, sf.Name()))
 		if err != nil {
 			return err
 		}
@@ -214,6 +208,9 @@ func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 		err = yaml.Unmarshal(summitData, &summit)
 		if err != nil {
 			return err
+		}
+		if summit.Height == 0 || summit.Coordinates == [2]float32{0.0, 0.0} {
+			return fmt.Errorf("error: height and coordinates are required: %s", summitId)
 		}
 		summit.Id = summitId
 		_, err = summitsStmt.Exec(
@@ -232,7 +229,7 @@ func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 		summitsNum += 1
 	}
 	if summitsNum <= 0 {
-		return errors.New(fmt.Sprintf("Error: empty ridges are not allowed: %s", ridgeId))
+		return fmt.Errorf("error: empty ridges are not allowed: %s", ridgeId)
 	}
 	return nil
 }
@@ -273,7 +270,7 @@ func LoadSummits(dataDir string, db *Database) error {
 			continue
 		}
 		ridgePath := path.Join(dataDir, ridgeId)
-		ridgeData, err := ioutil.ReadFile(path.Join(ridgePath, "meta.yaml"))
+		ridgeData, err := os.ReadFile(path.Join(ridgePath, "_meta.yaml"))
 		if err != nil {
 			return err
 		}
@@ -343,8 +340,23 @@ func FetchSummits(db *Database, userId int64) (*SummitsTable, error) {
 	return &SummitsTable{summits}, nil
 }
 
-func FetchSummitImages(summit *Summit) error {
-	return nil
+func FetchSummitImages(db *Database, summit_id string) ([]SummitImage, error) {
+	query := `SELECT url, comment FROM summit_images WHERE summit_id = ?`
+	rows, err := db.Pool.Query(query, summit_id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	images := make([]SummitImage, 0)
+	for rows.Next() {
+		var img SummitImage
+		err := rows.Scan(&img.Url, &img.Comment)
+		images = append(images, img)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return images, nil
 }
 
 func FetchSummit(db *Database, ridgeId, summitId string) (*Summit, error) {
@@ -352,7 +364,6 @@ func FetchSummit(db *Database, ridgeId, summitId string) (*Summit, error) {
 	var ridge Ridge
 	summit.Name = new(string)
 	summit.NameAlt = new(string)
-	summit.Images = make([]SummitImage, 0)
 	summit.Ridge = &ridge
 	summit.Coordinates = [2]float32{}
 
@@ -374,7 +385,7 @@ func FetchSummit(db *Database, ridgeId, summitId string) (*Summit, error) {
 		return nil, err
 	}
 
-	err = FetchSummitImages(&summit)
+	summit.Images, err = FetchSummitImages(db, summit.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -465,30 +476,30 @@ func GetUser(db *Database, oauthId string, src int) (*User, error) {
 	return getUser(db.Pool.QueryRow(query, oauthId, src))
 }
 
-func UpdateUserImage(db *Database, userId int64, size string, data []byte) error {
+func UpdateUserImage(db *Database, userId int64, size string, url string) error {
 	db.WriteLock.Lock()
 	defer db.WriteLock.Unlock()
 
-	query := `INSERT INTO user_images (user_id, size, data) VALUES (?, ?, ?)
-	ON CONFLICT (user_id, size) DO UPDATE SET data=excluded.data
+	query := `INSERT INTO user_images (user_id, size, url) VALUES (?, ?, ?)
+	ON CONFLICT (user_id, size) DO UPDATE SET url=excluded.url
 	`
-	_, err := db.Pool.Exec(query, userId, size, data)
+	_, err := db.Pool.Exec(query, userId, size, url)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func GetUserImage(db *Database, userId int64, size string) ([]byte, error) {
-	query := "SELECT data FROM user_images WHERE user_id=? AND size=?"
-	var img []byte
+func GetUserImage(db *Database, userId int64, size string) (string, error) {
+	query := "SELECT url FROM user_images WHERE user_id=? AND size=?"
+	var img string
 	row := db.Pool.QueryRow(query, userId, size)
 	err := row.Scan(&img)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return "", nil
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	return img, nil
 }

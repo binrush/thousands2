@@ -6,13 +6,22 @@
   "description": "Лесистая с очень крутыми склонами, курумов мало.",
   "height": 1162,
   "coordinates": [
-    54.02861,
-    58.23114
+    54.0286,
+    58.2311
   ],
   "ridge": {
     "id": "malidak",
     "name": "Малидак",
     "color": "7a8a79"
   },
-  "images": []
+  "images": [
+    {
+      "comment": "С Отнурка",
+      "url": "summits/kirel_s_otnurka_0.jpg"
+    },
+    {
+      "comment": "Вершина",
+      "url": "summits/kirel_vershina_1.jpg"
+    }
+  ]
 }

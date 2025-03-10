@@ -1,15 +1,51 @@
 INSERT INTO "users" VALUES(1,'9115',2,'Kaitlin Cross');
+INSERT INTO user_images VALUES (1, 'M', 'users/1_M.jpg');
+INSERT INTO user_images VALUES (1, 'S', 'users/1_S.jpg');
+
 INSERT INTO "users" VALUES(2,'8392',1,'Steven Guzman');
+INSERT INTO user_images VALUES (2, 'M', 'users/2_M.jpg');
+INSERT INTO user_images VALUES (2, 'S', 'users/2_S.jpg');
+
 INSERT INTO "users" VALUES(3,'5630',1,'Dr. Kevin Davenport Jr.');
+INSERT INTO user_images VALUES (3, 'M', 'users/3_M.jpg');
+INSERT INTO user_images VALUES (3, 'S', 'users/3_S.jpg');
+
 INSERT INTO "users" VALUES(4,'360',2,'Sophia Gilbert');
+INSERT INTO user_images VALUES (4, 'M', 'users/4_M.jpg');
+INSERT INTO user_images VALUES (4, 'S', 'users/4_S.jpg');
+
 INSERT INTO "users" VALUES(5,'1283',1,'Jonathan Nguyen');
+INSERT INTO user_images VALUES (5, 'M', 'users/5_M.jpg');
+INSERT INTO user_images VALUES (5, 'S', 'users/5_S.jpg');
+
 INSERT INTO "users" VALUES(6,'7217',1,'Curtis Allen');
+INSERT INTO user_images VALUES (6, 'M', 'users/6_M.jpg');
+INSERT INTO user_images VALUES (6, 'S', 'users/6_S.jpg');
+
 INSERT INTO "users" VALUES(7,'8610',1,'Todd Bowen');
+INSERT INTO user_images VALUES (7, 'M', 'users/7_M.jpg');
+INSERT INTO user_images VALUES (7, 'S', 'users/7_S.jpg');
+
 INSERT INTO "users" VALUES(8,'2193',2,'Cameron Smith');
+INSERT INTO user_images VALUES (8, 'M', 'users/8_M.jpg');
+INSERT INTO user_images VALUES (8, 'S', 'users/8_S.jpg');
+
 INSERT INTO "users" VALUES(9,'8017',2,'Stephen Peters DVM');
+INSERT INTO user_images VALUES (9, 'M', 'users/9_M.jpg');
+INSERT INTO user_images VALUES (9, 'S', 'users/9_S.jpg');
+
 INSERT INTO "users" VALUES(10,'4374',1,'Amanda Chan');
+INSERT INTO user_images VALUES (10, 'M', 'users/10_M.jpg');
+INSERT INTO user_images VALUES (10, 'S', 'users/10_S.jpg');
+
 INSERT INTO "users" VALUES(11,'5501',1,'Aaron Thompson');
+INSERT INTO user_images VALUES (11, 'M', 'users/11_M.jpg');
+INSERT INTO user_images VALUES (11, 'S', 'users/11_S.jpg');
+
 INSERT INTO "users" VALUES(12,'6489',2,'Carolyn Pierce');
+INSERT INTO user_images VALUES (12, 'M', 'users/12_M.jpg');
+INSERT INTO user_images VALUES (12, 'S', 'users/12_S.jpg');
+
 INSERT INTO "climbs" VALUES(1,'kurkak',1990,9,6,'Cloned heuristic middleware');
 INSERT INTO "climbs" VALUES(2,'kurkak',1992,4,18,'Down-sized coherent service-desk');
 INSERT INTO "climbs" VALUES(3,'kurkak',2012,3,7,'Expanded secondary alliance');

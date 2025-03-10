@@ -27,12 +27,12 @@ var migrations []Migration = []Migration{
                 id INTEGER PRIMARY KEY, 
                 oauth_id TEXT NOT NULL, 
                 src INTEGER NOT NULL, 
-                name TEXT NOT NULL 
+                name TEXT NOT NULL
             )`,
 			`CREATE TABLE user_images (
 				user_id INTEGER NOT NULL,
 				size TEXT NOT NULL,
-				data BLOB,
+				url TEXT NOT NULL,
 				PRIMARY KEY (user_id, size),
 				FOREIGN KEY (user_id) REFERENCES users(id)
 			)`,
@@ -62,7 +62,7 @@ var migrations []Migration = []Migration{
 				FOREIGN KEY (ridge_id) REFERENCES ridges(id)
 			)`,
 			`CREATE TABLE summit_images (
-				filename TEXT PRIMARY KEY,
+				url TEXT PRIMARY KEY,
 				summit_id TEXT NOT NULL,
 				comment TEXT NOT NULL,
 				FOREIGN KEY (summit_id) REFERENCES summits(id)
@@ -116,7 +116,7 @@ func (db *Database) Migrate() error {
 					// log rollback error
 					log.Printf("Rollback failed: %v\n", rollbackErr)
 				}
-				return fmt.Errorf("Statement %s failed with error: %v", stmt, err)
+				return fmt.Errorf("statement %s failed with error: %v", stmt, err)
 			}
 		}
 		stmt = "INSERT INTO _migrations VALUES (?)"

@@ -6,13 +6,22 @@
   "description": null,
   "height": 1021,
   "coordinates": [
-    54.18697,
-    58.46537
+    54.187,
+    58.4654
   ],
   "ridge": {
     "id": "stolby",
     "name": "Столбы",
     "color": "c0e3b7"
   },
-  "images": []
+  "images": [
+    {
+      "comment": "Вершина",
+      "url": "summits/1021_vershina_0.jpg"
+    },
+    {
+      "comment": "1",
+      "url": "summits/1021_1_1.jpg"
+    }
+  ]
 }

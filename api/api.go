@@ -204,5 +204,5 @@ func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, string(jsonResp), apiError.StatusCode)
 		return
 	}
-	fmt.Fprintf(w, string(jsonResp))
+	fmt.Fprint(w, string(jsonResp))
 }

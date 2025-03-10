@@ -1,15 +1,18 @@
 coordinates:
-- 54.02063
-- 58.29152
+- 54.0206
+- 58.2915
 description: Группа скал, расположенных дугой
 height: 1152
 images:
 - comment: С Отнурка
-  filename: 3ec0a42fde745053d3e21f44d71669bb4b4aa302.jpeg
+  preview_url: summits/malinovaja_s_otnurka_0_preview.jpg
+  url: summits/malinovaja_s_otnurka_0.jpg
 - comment: С Отнурка
-  filename: c84248f883016f48fc98cd75a4050e10e3dc2b92.jpeg
+  preview_url: summits/malinovaja_s_otnurka_1_preview.jpg
+  url: summits/malinovaja_s_otnurka_1.jpg
 - comment: Вид с вершины
-  filename: bfe982a415b8150eaa96bd07c02d6c7c434d6d1e.jpeg
+  preview_url: summits/malinovaja_vid_s_vershiny_2_preview.jpg
+  url: summits/malinovaja_vid_s_vershiny_2.jpg
 interpretation: "Обилие ягод (малины).\r\n<strong>Элэкташ</strong> (баш.) &mdash;\
   \ ягодный камень."
 name: Малиновая

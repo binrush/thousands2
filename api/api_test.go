@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func AreEqualJSON(s1, s2 string) (bool, error) {
@@ -99,22 +100,14 @@ func TestSummitsTableHandler(t *testing.T) {
 			return
 		}
 
-		expected, err := ioutil.ReadFile("testdata/" + tt.expectedResonseFilename)
+		expected, err := os.ReadFile("testdata/" + tt.expectedResonseFilename)
 		if err != nil {
 			t.Errorf("Failed to read expected json data: %v", err)
 			return
 		}
 		expectedStr := string(expected)
 		actualStr := rr.Body.String()
-		areEqual, err := AreEqualJSON(expectedStr, actualStr)
-		if err != nil {
-			t.Errorf("Error comparing response: (%v): %v", actualStr, err)
-			return
-		}
-		if !areEqual {
-			t.Errorf("handler returned unexpected body: got %v want %v",
-				actualStr, expectedStr)
-		}
+		require.JSONEq(t, expectedStr, actualStr, "Response body mismatch")
 	}
 }
 
@@ -220,7 +213,7 @@ func TestHandlersHappyPath(t *testing.T) {
 				tt.url, contentType)
 			continue
 		}
-		expected, err := ioutil.ReadFile(
+		expected, err := os.ReadFile(
 			filepath.Join("testdata/responses", tt.expectedResultFile))
 		if err != nil {
 			t.Errorf("Failed to read expected json data from %s: %v",
@@ -229,14 +222,6 @@ func TestHandlersHappyPath(t *testing.T) {
 		}
 		expectedBody := string(expected)
 
-		areEqual, err := AreEqualJSON(expectedBody, rr.Body.String())
-		if err != nil {
-			t.Errorf("Error comparing response: %v", err)
-		}
-		if !areEqual {
-			t.Errorf("handler returned unexpected body for url %s: got %v want %v",
-				tt.url, rr.Body.String(), expectedBody)
-			continue
-		}
+		assert.JSONEq(t, expectedBody, rr.Body.String(), "Response body mismatch for %s", tt.url)
 	}
 }

@@ -6,13 +6,26 @@
   "description": "Группа скал, расположенных дугой",
   "height": 1152,
   "coordinates": [
-    54.02063,
-    58.29152
+    54.0206,
+    58.2915
   ],
   "ridge": {
     "id": "malidak",
     "name": "Малидак",
     "color": "7a8a79"
   },
-  "images": []
+  "images": [
+    {
+      "comment": "С Отнурка",
+      "url": "summits/malinovaja_s_otnurka_0.jpg"
+    },
+    {
+      "comment": "С Отнурка",
+      "url": "summits/malinovaja_s_otnurka_1.jpg"
+    },
+    {
+      "comment": "Вид с вершины",
+      "url": "summits/malinovaja_vid_s_vershiny_2.jpg"
+    }
+  ]
 }
