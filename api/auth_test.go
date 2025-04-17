@@ -243,12 +243,12 @@ func NewApp(mockOauthProvider Provider, t *testing.T) *App {
 	providers := make(AuthProviders)
 	providers["mock"] = mockOauthProvider
 	sm := scs.New()
-	as := AuthServer{Providers: providers, DB: db, SM: sm}
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
 	api := NewApi(conf, db, sm)
+	as := NewAuthServer(providers, db, sm)
 	return &App{
-		AuthServer: &as,
 		Api:        api,
+		AuthServer: as,
 		SM:         sm,
 	}
 }

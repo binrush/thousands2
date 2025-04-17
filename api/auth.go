@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/chi/v5"
 	"golang.org/x/oauth2"
 )
 
@@ -30,52 +31,71 @@ type AuthServer struct {
 	Providers AuthProviders
 	DB        *Database
 	SM        *scs.SessionManager
+	router    *chi.Mux
+}
+
+func NewAuthServer(providers AuthProviders, db *Database, sm *scs.SessionManager) *AuthServer {
+	as := &AuthServer{
+		Providers: providers,
+		DB:        db,
+		SM:        sm,
+		router:    chi.NewRouter(),
+	}
+
+	// Set up routes
+	as.router.Get("/oauth/{provider}", as.handleOAuthRedirect)
+	as.router.Get("/authorized/{provider}", as.handleAuthorized)
+	as.router.Get("/logout", as.handleLogout)
+
+	return as
 }
 
 func (h *AuthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var head string
-	head, r.URL.Path = ShiftPath(r.URL.Path)
-	switch head {
-	case "oauth":
-		h.RedirectToProvider(w, r)
-	case "authorized":
-		h.Authorized(w, r)
-	case "logout":
-		h.Logout(w, r)
-	default:
-		http.NotFound(w, r)
-	}
+	h.router.ServeHTTP(w, r)
 }
 
-func (h *AuthServer) Authorized(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/" {
-		http.NotFound(w, r)
-		return
-	}
-	var head string
-	head, r.URL.Path = ShiftPath(r.URL.Path)
-
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	provider, ok := h.Providers[head]
+func (h *AuthServer) handleOAuthRedirect(w http.ResponseWriter, r *http.Request) {
+	providerName := chi.URLParam(r, "provider")
+	provider, ok := h.Providers[providerName]
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
+
+	if h.SM.GetInt64(r.Context(), UserIdKey) != 0 { // user already logged in
+		http.Redirect(w, r, "/user/me", http.StatusTemporaryRedirect)
+		return
+	}
+
+	oauthState := GenerateRandomString(OauthStateSize)
+	h.SM.Put(r.Context(), OauthStateKey, oauthState)
+	http.Redirect(
+		w, r, provider.GetConfig().AuthCodeURL(oauthState, oauth2.AccessTypeOffline),
+		http.StatusTemporaryRedirect)
+}
+
+func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
+	providerName := chi.URLParam(r, "provider")
+	provider, ok := h.Providers[providerName]
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
 	if r.FormValue("error") != "" {
 		log.Printf("Error returned by oauth provider: %s, %s",
 			r.FormValue("error"), r.FormValue("error_description"))
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
+
 	expectedState := h.SM.Pop(r.Context(), OauthStateKey).(string)
 	if expectedState != r.FormValue("state") {
 		log.Printf("Error checking state parameter: value not match")
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
+
 	code := r.FormValue("code")
 	token, err := provider.GetConfig().Exchange(r.Context(), code)
 	if err != nil {
@@ -83,12 +103,14 @@ func (h *AuthServer) Authorized(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
+
 	oauthUserId, err := provider.GetUserId(token)
 	if err != nil {
 		log.Printf("Failed to obtain oauth user ID: %s", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
+
 	user, err := GetUser(h.DB, oauthUserId, provider.GetSrcId())
 	if err != nil {
 		log.Printf("Failed to obtain user data from DB: %v", err)
@@ -109,45 +131,12 @@ func (h *AuthServer) Authorized(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
 	h.SM.Put(r.Context(), UserIdKey, userId)
 	http.Redirect(w, r, "/user/me", http.StatusTemporaryRedirect)
 }
 
-func (h *AuthServer) RedirectToProvider(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/" {
-		http.NotFound(w, r)
-		return
-	}
-	var head string
-	head, r.URL.Path = ShiftPath(r.URL.Path)
-
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-
-	provider, ok := h.Providers[head]
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	if h.SM.GetInt64(r.Context(), UserIdKey) != 0 { // user already logged in
-		http.Redirect(w, r, "/user/me", http.StatusTemporaryRedirect)
-		return
-	}
-
-	oauthState := GenerateRandomString(OauthStateSize)
-	h.SM.Put(r.Context(), OauthStateKey, oauthState)
-	http.Redirect(
-		w, r, provider.GetConfig().AuthCodeURL(oauthState, oauth2.AccessTypeOffline),
-		http.StatusTemporaryRedirect)
-}
-
-func (h *AuthServer) Logout(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
+func (h *AuthServer) handleLogout(w http.ResponseWriter, r *http.Request) {
 	err := h.SM.Destroy(r.Context())
 	if err != nil {
 		log.Printf("Failed to destroy session data: %v", err)

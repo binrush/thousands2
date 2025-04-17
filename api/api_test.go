@@ -140,10 +140,11 @@ func TestHandlersClientErrors(t *testing.T) {
 	sm := scs.New()
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
 	api := NewApi(conf, db, sm)
-	as := AuthServer{DB: db, SM: sm}
+	providers := make(AuthProviders)
+	as := NewAuthServer(providers, db, sm)
 	app := sm.LoadAndSave(&App{
 		Api:        api,
-		AuthServer: &as,
+		AuthServer: as,
 		SM:         sm,
 	})
 

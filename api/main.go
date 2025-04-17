@@ -77,14 +77,10 @@ func main() {
 
 	sm := scs.New()
 	app := &App{
-		Api: NewApi(conf, db, sm),
-		AuthServer: &AuthServer{
-			Providers: GetAuthProviders(baseUrl),
-			DB:        db,
-			SM:        sm,
-		},
-		UIDir: os.Args[2],
-		SM:    sm,
+		Api:        NewApi(conf, db, sm),
+		AuthServer: NewAuthServer(GetAuthProviders(baseUrl), db, sm),
+		UIDir:      os.Args[2],
+		SM:         sm,
 	}
 	log.Fatal(http.ListenAndServe(":5000", sm.LoadAndSave(app)))
 }
