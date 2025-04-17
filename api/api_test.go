@@ -69,7 +69,8 @@ func TestSummitsTableHandler(t *testing.T) {
 		return
 	}
 
-	api := sm.LoadAndSave(&Api{Config: conf, DB: db, SM: sm})
+	api := NewApi(conf, db, sm)
+	handler := sm.LoadAndSave(api)
 
 	cases := []struct {
 		cookie                  *http.Cookie
@@ -92,7 +93,7 @@ func TestSummitsTableHandler(t *testing.T) {
 			req.AddCookie(tt.cookie)
 		}
 
-		api.ServeHTTP(rr, req)
+		handler.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("handler returned wrong status code: got %v want %v",
@@ -138,10 +139,10 @@ func TestHandlersClientErrors(t *testing.T) {
 	db := MockDatabase(t)
 	sm := scs.New()
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
-	api := Api{Config: conf, DB: db, SM: sm}
+	api := NewApi(conf, db, sm)
 	as := AuthServer{DB: db, SM: sm}
 	app := sm.LoadAndSave(&App{
-		Api:        &api,
+		Api:        api,
 		AuthServer: &as,
 		SM:         sm,
 	})
@@ -190,10 +191,9 @@ func TestHandlersHappyPath(t *testing.T) {
 		return
 	}
 
-	api := Api{Config: conf, DB: db}
+	api := NewApi(conf, db, nil)
 
 	for _, tt := range cases {
-
 		req, err := http.NewRequest("GET", tt.url, nil)
 		if err != nil {
 			t.Fatal(err)

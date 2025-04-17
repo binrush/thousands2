@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/alexedwards/scs/v2 v2.5.0
+	github.com/go-chi/chi/v5 v5.0.12
 	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c

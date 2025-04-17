@@ -32,7 +32,6 @@ type App struct {
 }
 
 func (h *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	head, path := ShiftPath(r.URL.Path)
 	switch head {
 	case "api":
@@ -78,11 +77,7 @@ func main() {
 
 	sm := scs.New()
 	app := &App{
-		Api: &Api{
-			Config: conf,
-			DB:     db,
-			SM:     sm,
-		},
+		Api: NewApi(conf, db, sm),
 		AuthServer: &AuthServer{
 			Providers: GetAuthProviders(baseUrl),
 			DB:        db,
