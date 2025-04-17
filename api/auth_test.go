@@ -254,6 +254,8 @@ func NewApp(mockOauthProvider Provider, t *testing.T) *App {
 		router:     chi.NewRouter(),
 	}
 
+	app.router.Use(sm.LoadAndSave)
+
 	// Set up routes
 	app.router.Mount("/api", app.Api.router)
 	app.router.Mount("/auth", app.AuthServer.router)
@@ -331,7 +333,7 @@ func TestAuthFlow(t *testing.T) {
 		defer mockOauthServer.Close()
 
 		app := NewApp(tt.oauthProvider, t)
-		appServer := httptest.NewServer(app.SM.LoadAndSave(app))
+		appServer := httptest.NewServer(app.router)
 		defer appServer.Close()
 
 		tt.oauthProvider.SetConfig(
@@ -405,7 +407,7 @@ func TestAuthFlowUserExists(t *testing.T) {
 	// to ensure register is not called
 	oauthProvider := &MockProviderRegisterError{}
 	app := NewApp(oauthProvider, t)
-	appServer := httptest.NewServer(app.SM.LoadAndSave(app))
+	appServer := httptest.NewServer(app.router)
 	defer appServer.Close()
 
 	oauthProvider.SetConfig(

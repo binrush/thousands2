@@ -23,10 +23,6 @@ type App struct {
 	router     *chi.Mux
 }
 
-func (h *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.router.ServeHTTP(w, r)
-}
-
 func NewAppServer(conf *RuntimeConfig, db *Database, sm *scs.SessionManager, uiDir string) *App {
 	app := &App{
 		Api:        NewApi(conf, db, sm),
@@ -76,5 +72,5 @@ func main() {
 
 	sm := scs.New()
 	app := NewAppServer(conf, db, sm, os.Args[2])
-	log.Fatal(http.ListenAndServe(":5000", app))
+	log.Fatal(http.ListenAndServe(":5000", app.router))
 }

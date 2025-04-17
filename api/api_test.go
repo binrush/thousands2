@@ -140,7 +140,6 @@ func TestHandlersClientErrors(t *testing.T) {
 	sm := scs.New()
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
 	app := NewAppServer(conf, db, sm, "")
-	appHandler := sm.LoadAndSave(app)
 
 	for _, tt := range cases {
 
@@ -150,7 +149,7 @@ func TestHandlersClientErrors(t *testing.T) {
 		}
 		rr := httptest.NewRecorder()
 
-		appHandler.ServeHTTP(rr, req)
+		app.router.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != tt.expectedCode {
 			t.Errorf("handler returned wrong status code for %s: got %v want %v",
