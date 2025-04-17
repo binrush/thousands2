@@ -50,10 +50,6 @@ func NewAuthServer(providers AuthProviders, db *Database, sm *scs.SessionManager
 	return as
 }
 
-func (h *AuthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.router.ServeHTTP(w, r)
-}
-
 func (h *AuthServer) handleOAuthRedirect(w http.ResponseWriter, r *http.Request) {
 	providerName := chi.URLParam(r, "provider")
 	provider, ok := h.Providers[providerName]

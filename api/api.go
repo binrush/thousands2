@@ -48,20 +48,14 @@ func NewApi(config *RuntimeConfig, db *Database, sm *scs.SessionManager) *Api {
 	}
 
 	// Set up routes
+	api.router.Get("/summit/{ridgeId}/{summitId}", api.handleSummitGet)
+	api.router.Put("/summit/{ridgeId}/{summitId}", api.handleSummitPut)
 	api.router.Get("/summits", api.handleSummits)
 	api.router.Get("/top", api.handleTop)
 	api.router.Get("/user/me", api.handleUserMe)
 	api.router.Get("/user/{userId}", api.handleUser)
-	api.router.Route("/summit/{ridgeId}/{summitId}", func(r chi.Router) {
-		r.Get("/", api.handleSummitGet)
-		r.Put("/", api.handleSummitPut)
-	})
 
 	return api
-}
-
-func (h *Api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.router.ServeHTTP(w, r)
 }
 
 func (h *Api) handleSummitGet(w http.ResponseWriter, r *http.Request) {

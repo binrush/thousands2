@@ -70,7 +70,7 @@ func TestSummitsTableHandler(t *testing.T) {
 	}
 
 	api := NewApi(conf, db, sm)
-	handler := sm.LoadAndSave(api)
+	handler := sm.LoadAndSave(api.router)
 
 	cases := []struct {
 		cookie                  *http.Cookie
@@ -196,7 +196,7 @@ func TestHandlersHappyPath(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		api.ServeHTTP(rr, req)
+		api.router.ServeHTTP(rr, req)
 		res := rr.Result()
 		if status := res.StatusCode; status != http.StatusOK {
 			t.Errorf("handler returned wrong status code for url %s: got %v want %v.",
