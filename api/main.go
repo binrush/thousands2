@@ -23,6 +23,10 @@ type App struct {
 	router     *chi.Mux
 }
 
+func (h *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.router.ServeHTTP(w, r)
+}
+
 func NewAppServer(conf *RuntimeConfig, db *Database, sm *scs.SessionManager, uiDir string) *App {
 	app := &App{
 		Api:        NewApi(conf, db, sm),
@@ -33,6 +37,7 @@ func NewAppServer(conf *RuntimeConfig, db *Database, sm *scs.SessionManager, uiD
 	}
 
 	// Set up routes
+	app.router.Use(sm.LoadAndSave)
 	app.router.Mount("/api", app.Api.router)
 	app.router.Mount("/auth", app.AuthServer.router)
 
@@ -40,10 +45,6 @@ func NewAppServer(conf *RuntimeConfig, db *Database, sm *scs.SessionManager, uiD
 	app.router.NotFound(http.FileServer(http.Dir(app.UIDir)).ServeHTTP)
 
 	return app
-}
-
-func (h *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.router.ServeHTTP(w, r)
 }
 
 func main() {
@@ -75,5 +76,5 @@ func main() {
 
 	sm := scs.New()
 	app := NewAppServer(conf, db, sm, os.Args[2])
-	log.Fatal(http.ListenAndServe(":5000", sm.LoadAndSave(app)))
+	log.Fatal(http.ListenAndServe(":5000", app))
 }
