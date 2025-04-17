@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/chi/v5"
 	"golang.org/x/oauth2"
 )
 
@@ -246,11 +247,18 @@ func NewApp(mockOauthProvider Provider, t *testing.T) *App {
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
 	api := NewApi(conf, db, sm)
 	as := NewAuthServer(providers, db, sm)
-	return &App{
+	app := &App{
 		Api:        api,
 		AuthServer: as,
 		SM:         sm,
+		router:     chi.NewRouter(),
 	}
+
+	// Set up routes
+	app.router.Mount("/api", app.Api.router)
+	app.router.Mount("/auth", app.AuthServer.router)
+
+	return app
 }
 
 func NewTestClient(t *testing.T) *http.Client {

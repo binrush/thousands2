@@ -121,10 +121,12 @@ func HandleUserGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleImage(w http.ResponseWriter, r *http.Request) {
-	_, imgName := ShiftPath(r.URL.Path)
+	// Extract the image name from the URL path
+	imgName := path.Base(r.URL.Path)
 	f, err := os.Open(path.Join("testdata", imgName))
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	defer f.Close()
 
@@ -132,7 +134,8 @@ func HandleImage(w http.ResponseWriter, r *http.Request) {
 
 	_, err = io.Copy(w, f)
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -192,19 +195,19 @@ func TestVKRegister(t *testing.T) {
 		}
 		assert.Equal(t, fmt.Sprintf("users/%d_%s.jpg", userId, tt.size), img)
 		// TODO: check if file is uploaded to S3
-		/*	
-		f, err := os.Open(tt.expected)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		expectedImg, err := io.ReadAll(f)
-		if err != nil {
-			panic(err)
-		}
-		if !reflect.DeepEqual(img, expectedImg) {
-			t.Fatalf("Unexpected image stored for user %d", userId)
-		}
+		/*
+			f, err := os.Open(tt.expected)
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			expectedImg, err := io.ReadAll(f)
+			if err != nil {
+				panic(err)
+			}
+			if !reflect.DeepEqual(img, expectedImg) {
+				t.Fatalf("Unexpected image stored for user %d", userId)
+			}
 		*/
 	}
 }

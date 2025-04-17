@@ -5,19 +5,10 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/chi/v5"
 )
-
-func ShiftPath(p string) (head, tail string) {
-	p = path.Clean("/" + p)
-	i := strings.Index(p[1:], "/") + 1
-	if i <= 0 {
-		return p[1:], "/"
-	}
-	return p[1:i], p[i:]
-}
 
 type RuntimeConfig struct {
 	Datadir      string
@@ -29,21 +20,30 @@ type App struct {
 	AuthServer *AuthServer
 	UIDir      string
 	SM         *scs.SessionManager
+	router     *chi.Mux
+}
+
+func NewAppServer(conf *RuntimeConfig, db *Database, sm *scs.SessionManager, uiDir string) *App {
+	app := &App{
+		Api:        NewApi(conf, db, sm),
+		AuthServer: NewAuthServer(GetAuthProviders(os.Getenv("BASE_URL")), db, sm),
+		UIDir:      uiDir,
+		SM:         sm,
+		router:     chi.NewRouter(),
+	}
+
+	// Set up routes
+	app.router.Mount("/api", app.Api.router)
+	app.router.Mount("/auth", app.AuthServer.router)
+
+	// Serve static files for all other routes
+	app.router.NotFound(http.FileServer(http.Dir(app.UIDir)).ServeHTTP)
+
+	return app
 }
 
 func (h *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	head, path := ShiftPath(r.URL.Path)
-	switch head {
-	case "api":
-		r.URL.Path = path
-		h.Api.ServeHTTP(w, r)
-	case "auth":
-		r.URL.Path = path
-		h.AuthServer.ServeHTTP(w, r)
-	default:
-		fs := http.FileServer(http.Dir(h.UIDir))
-		fs.ServeHTTP(w, r)
-	}
+	h.router.ServeHTTP(w, r)
 }
 
 func main() {
@@ -73,14 +73,7 @@ func main() {
 	}
 	log.Printf("Summits data loaded")
 
-	baseUrl := os.Getenv("BASE_URL")
-
 	sm := scs.New()
-	app := &App{
-		Api:        NewApi(conf, db, sm),
-		AuthServer: NewAuthServer(GetAuthProviders(baseUrl), db, sm),
-		UIDir:      os.Args[2],
-		SM:         sm,
-	}
+	app := NewAppServer(conf, db, sm, os.Args[2])
 	log.Fatal(http.ListenAndServe(":5000", sm.LoadAndSave(app)))
 }

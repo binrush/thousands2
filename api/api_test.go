@@ -139,14 +139,8 @@ func TestHandlersClientErrors(t *testing.T) {
 	db := MockDatabase(t)
 	sm := scs.New()
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
-	api := NewApi(conf, db, sm)
-	providers := make(AuthProviders)
-	as := NewAuthServer(providers, db, sm)
-	app := sm.LoadAndSave(&App{
-		Api:        api,
-		AuthServer: as,
-		SM:         sm,
-	})
+	app := NewAppServer(conf, db, sm, "")
+	appHandler := sm.LoadAndSave(app)
 
 	for _, tt := range cases {
 
@@ -156,7 +150,7 @@ func TestHandlersClientErrors(t *testing.T) {
 		}
 		rr := httptest.NewRecorder()
 
-		app.ServeHTTP(rr, req)
+		appHandler.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != tt.expectedCode {
 			t.Errorf("handler returned wrong status code for %s: got %v want %v",
