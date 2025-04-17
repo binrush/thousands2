@@ -1,0 +1,40 @@
+{
+  "id": "kirel",
+  "name": "Кирель",
+  "name_alt": null,
+  "interpretation": "<b>Кыр</b> (баш.) &mdash; лес",
+  "description": "Лесистая с очень крутыми склонами, курумов мало.",
+  "height": 1162,
+  "coordinates": [
+    54.0286,
+    58.2311
+  ],
+  "ridge": {
+    "id": "malidak",
+    "name": "Малидак",
+    "color": "7a8a79"
+  },
+  "images": [
+    {
+      "comment": "С Отнурка",
+      "url": "summits/kirel_s_otnurka_0.jpg"
+    },
+    {
+      "comment": "Вершина",
+      "url": "summits/kirel_vershina_1.jpg"
+    }
+  ],
+  "climbs": [
+    {
+      "user_id": 5,
+      "user_name": "Jonathan Nguyen",
+      "user_image": "users/5_S.jpg",
+      "date": {
+        "Year": 0,
+        "Month": 0,
+        "Day": 0
+      },
+      "comment": "Profit-focused demand-driven core"
+    }
+  ]
+} 

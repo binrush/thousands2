@@ -52,7 +52,16 @@ func (h *Api) HandleSummit(r *http.Request) interface{} {
 	if r.URL.Path != "/" {
 		return pathNotFoundError
 	}
-	summit, err := FetchSummit(h.DB, ridgeId, summitId)
+
+	page := 1
+	pageParam := r.URL.Query()["page"]
+	if len(pageParam) == 1 {
+		if p, err := strconv.Atoi(pageParam[0]); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	summit, err := FetchSummit(h.DB, summitId, page, h.Config.ItemsPerPage)
 	if err != nil {
 		log.Printf("Failed to fetch summit %s/%s: %v", ridgeId, summitId, err)
 		return serverError

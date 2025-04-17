@@ -97,8 +97,8 @@ type Ridge struct {
 }
 
 type SummitImage struct {
-	Url string `json:"url"`
-	Comment  string `json:"comment"`
+	Url     string `json:"url"`
+	Comment string `json:"comment"`
 }
 
 type Summit struct {
@@ -111,6 +111,7 @@ type Summit struct {
 	Coordinates    [2]float32    `json:"coordinates"`
 	Ridge          *Ridge        `json:"ridge"`
 	Images         []SummitImage `json:"images"`
+	Climbs         []SummitClimb `json:"climbs"`
 }
 
 func (s *Summit) JSON() ([]byte, error) {
@@ -164,6 +165,14 @@ type User struct {
 	Name    string `json:"name"`
 }
 
+type SummitClimb struct {
+	UserId    int64       `json:"user_id"`
+	UserName  string      `json:"user_name"`
+	UserImage string      `json:"user_image"`
+	Date      InexactDate `json:"date"`
+	Comment   string      `json:"comment"`
+}
+
 func LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {
 	imageStmt, err := tx.Prepare(
 		`INSERT INTO summit_images 
@@ -195,7 +204,7 @@ func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 	}
 	defer summitsStmt.Close()
 	summitsNum := 0
-	for _, sf:= range summitFiles {
+	for _, sf := range summitFiles {
 		if (sf.Name() == "_meta.yaml") || sf.IsDir() {
 			continue
 		}
@@ -359,7 +368,46 @@ func FetchSummitImages(db *Database, summit_id string) ([]SummitImage, error) {
 	return images, nil
 }
 
-func FetchSummit(db *Database, ridgeId, summitId string) (*Summit, error) {
+func FetchSummitClimbs(db *Database, summitId string, page, itemsPerPage int) ([]SummitClimb, error) {
+	offset := (page - 1) * itemsPerPage
+	query := `
+		SELECT c.user_id, u.name, ui.url, c.year, c.month, c.day, c.comment 
+		FROM climbs c
+		INNER JOIN users u ON c.user_id = u.id
+		LEFT JOIN user_images ui ON u.id = ui.user_id AND ui.size = 'S'
+		WHERE c.summit_id = ?
+		ORDER BY c.year DESC, c.month DESC, c.day DESC
+		LIMIT ? OFFSET ?`
+	rows, err := db.Pool.Query(query, summitId, itemsPerPage, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	climbs := make([]SummitClimb, 0)
+	for rows.Next() {
+		var climb SummitClimb
+		var year, month, day sql.NullInt64
+		var url sql.NullString
+		err := rows.Scan(&climb.UserId, &climb.UserName, &url, &year, &month, &day, &climb.Comment)
+		if err != nil {
+			return nil, err
+		}
+		if url.Valid {
+			climb.UserImage = url.String
+		}
+		if year.Valid && month.Valid && day.Valid {
+			climb.Date = InexactDate{
+				Year:  year.Int64,
+				Month: month.Int64,
+				Day:   day.Int64,
+			}
+		}
+		climbs = append(climbs, climb)
+	}
+	return climbs, nil
+}
+
+func FetchSummit(db *Database, summitId string, page, itemsPerPage int) (*Summit, error) {
 	var summit Summit
 	var ridge Ridge
 	summit.Name = new(string)
@@ -371,9 +419,9 @@ func FetchSummit(db *Database, ridgeId, summitId string) (*Summit, error) {
 		s.id, s.name, s.name_alt, s.interpretation, s.description, s.height, s.lat, s.lng,
 		r.id, r.name, r.color
 	FROM summits s INNER JOIN ridges r ON s.ridge_id = r.id
-	WHERE r.id = ? AND s.id = ?
+	WHERE s.id = ?
 	`
-	err := db.Pool.QueryRow(query, ridgeId, summitId).Scan(&summit.Id,
+	err := db.Pool.QueryRow(query, summitId).Scan(&summit.Id,
 		&summit.Name, &summit.NameAlt, &summit.Interpretation,
 		&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
 		&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
@@ -386,6 +434,11 @@ func FetchSummit(db *Database, ridgeId, summitId string) (*Summit, error) {
 	}
 
 	summit.Images, err = FetchSummitImages(db, summit.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	summit.Climbs, err = FetchSummitClimbs(db, summit.Id, page, itemsPerPage)
 	if err != nil {
 		return nil, err
 	}

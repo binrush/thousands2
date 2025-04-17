@@ -173,6 +173,7 @@ func TestHandlersHappyPath(t *testing.T) {
 		{"/top?page=2", "top-2.json"},
 		{"/top?page=3", "top-3.json"},
 		{"/summit/malidak/kirel", "summit-1.json"},
+		{"/summit/malidak/kirel?page=2", "summit-1-page-2.json"},
 		{"/summit/stolby/1021", "summit-2.json"},
 		{"/summit/malidak/malinovaja", "summit-3.json"},
 		{"/user/5", "user-1.json"},

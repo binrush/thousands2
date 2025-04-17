@@ -27,5 +27,29 @@
       "comment": "Вид с вершины",
       "url": "summits/malinovaja_vid_s_vershiny_2.jpg"
     }
+  ],
+  "climbs": [
+    {
+      "user_id": 9,
+      "user_name": "Stephen Peters DVM",
+      "user_image": "users/9_S.jpg",
+      "date": {
+        "Year": 0,
+        "Month": 0,
+        "Day": 0
+      },
+      "comment": "Down-sized intermediate framework"
+    },
+    {
+      "user_id": 5,
+      "user_name": "Jonathan Nguyen",
+      "user_image": "users/5_S.jpg",
+      "date": {
+        "Year": 0,
+        "Month": 0,
+        "Day": 0
+      },
+      "comment": "Secured national open architecture"
+    }
   ]
 }

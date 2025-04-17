@@ -1,17 +1,16 @@
-<script setup>
+<template>
+  <div class="map-view">
+    <div id="map" class="map-container"></div>
+  </div>
+</template>
 
+<script setup>
 import mapboxgl from 'mapbox-gl';
 import MapboxLanguage from '@mapbox/mapbox-gl-language';
-
-
-import { ref, onMounted, computed, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-
-
-//const summits = ref(null)
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const route = useRoute()
 
 async function loadMarkers(map) {
     const res = await fetch("/api/summits")
@@ -42,12 +41,13 @@ async function loadMarkers(map) {
             type: 'symbol',
             source: 'markers',
             layout: {
-                'icon-image': '{icon}', // Reference the 'icon' property in the GeoJSON
+                'icon-image': '{icon}',
                 'icon-size': 1,
-                'icon-allow-overlap': true // Optional, to allow icons to overlap
+                'icon-allow-overlap': true
             }
         });
     });
+
     map.on('click', 'markers', function (e) {
         var coordinates = e.features[0].geometry.coordinates.slice();
         var description = e.features[0].properties.description;
@@ -57,25 +57,7 @@ async function loadMarkers(map) {
             .setHTML(description)
             .addTo(map);
     });
-
-    /*summits.forEach(s => {
-        let name = s.name === null ? s.height : s.name
-        let url = router.resolve({name: 'summit', params: { ridge_id: s.ridge_id, summit_id: s.id}}).href
-        let href = `<a href="${url}" class="underline">${name}</a>`
-        new mapboxgl.Marker({
-            //color: s.color,
-            color: '#' + s.color,
-            scale: 0.75
-        })
-        .setLngLat([s.lng, s.lat])
-        .setPopup(new mapboxgl.Popup().setHTML(
-            `${href}<br>Высота: ${s.height}<br>Хребет: ${s.ridge}`)
-            )
-        .addTo(map);
-    });*/
-
 }
-
 
 function createMap() {
     mapboxgl.accessToken = 'pk.eyJ1IjoiYmlucnVzaCIsImEiOiJjbGk5dHB4YzIybDJjM2ZvM2FxZzhodmZrIn0.63GDcGk_4KwJlrBpvQVAVg';
@@ -88,20 +70,24 @@ function createMap() {
     const language = new MapboxLanguage({
         defaultLanguage: 'ru'
     });
-    //language.setLanguage('mapbox://styles/mapbox/outdoors-v12', 'ru')
     map.addControl(language);
     return map
 }
 
-onMounted(function () {
+onMounted(() => {
     let map = createMap()
     loadMarkers(map)
 })
-
 </script>
 
-<template>
-    <div id="map" class="flex-grow"></div>
-</template>
+<style scoped>
+.map-view {
+  width: 100%;
+  height: 100vh;
+}
 
-<style></style>
+.map-container {
+  width: 100%;
+  height: 100%;
+}
+</style>
