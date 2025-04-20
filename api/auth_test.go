@@ -182,8 +182,8 @@ func (*MockProviderSuccess) GetUserId(token *oauth2.Token) (string, error) {
 }
 
 // Register implements provider
-func (mp *MockProviderSuccess) Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error) {
-	userId, err := CreateUser(db, "Mock Mock", "2343", mp.GetSrcId())
+func (mp *MockProviderSuccess) Register(token *oauth2.Token, storage *Storage, ctx context.Context) (int64, error) {
+	userId, err := storage.CreateUser("Mock Mock", "2343", mp.GetSrcId())
 	if err != nil {
 		return 0, err
 	}
@@ -210,7 +210,7 @@ type MockProviderRegisterError struct {
 	MockProviderSuccess
 }
 
-func (*MockProviderRegisterError) Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error) {
+func (*MockProviderRegisterError) Register(token *oauth2.Token, storage *Storage, ctx context.Context) (int64, error) {
 	return 0, fmt.Errorf("Failed to register user")
 }
 
@@ -241,25 +241,23 @@ func NewMockOauthServer(mockOauthHandler MockOauthHandler) *httptest.Server {
 
 func NewApp(mockOauthProvider Provider, t *testing.T) *App {
 	db := MockDatabase(t)
+	storage := NewStorage(db)
 	providers := make(AuthProviders)
 	providers["mock"] = mockOauthProvider
 	sm := scs.New()
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
-	api := NewApi(conf, db, sm)
-	as := NewAuthServer(providers, db, sm)
+	api := NewApi(conf, storage, sm)
+	as := NewAuthServer(providers, storage, sm)
 	app := &App{
 		Api:        api,
 		AuthServer: as,
+		UIDir:      "",
 		SM:         sm,
 		router:     chi.NewRouter(),
 	}
-
 	app.router.Use(sm.LoadAndSave)
-
-	// Set up routes
-	app.router.Mount("/api", app.Api.router)
-	app.router.Mount("/auth", app.AuthServer.router)
-
+	app.router.Mount("/api", api.router)
+	app.router.Mount("/auth", as.router)
 	return app
 }
 
@@ -413,7 +411,7 @@ func TestAuthFlowUserExists(t *testing.T) {
 	oauthProvider.SetConfig(
 		NewMockOauthConfig(mockOauthServer.URL, appServer.URL+"/auth/authorized/mock"))
 
-	_, err := CreateUser(app.AuthServer.DB, "Mock Mock", MockOauthUserId, 1)
+	_, err := app.AuthServer.Storage.CreateUser("Mock Mock", MockOauthUserId, 1)
 
 	client := NewTestClient(t)
 	resp, err := client.Get(appServer.URL + "/auth/oauth/mock")

@@ -32,18 +32,18 @@ var serverError = &ApiError{internalServerErrorMsg, http.StatusInternalServerErr
 var authRequired = &ApiError{authRequiredMsg, http.StatusUnauthorized}
 
 type Api struct {
-	Config *RuntimeConfig
-	DB     *Database
-	SM     *scs.SessionManager
-	router *chi.Mux
+	Config  *RuntimeConfig
+	Storage *Storage
+	SM      *scs.SessionManager
+	router  *chi.Mux
 }
 
-func NewApi(config *RuntimeConfig, db *Database, sm *scs.SessionManager) *Api {
+func NewApi(config *RuntimeConfig, storage *Storage, sm *scs.SessionManager) *Api {
 	api := &Api{
-		Config: config,
-		DB:     db,
-		SM:     sm,
-		router: chi.NewRouter(),
+		Config:  config,
+		Storage: storage,
+		SM:      sm,
+		router:  chi.NewRouter(),
 	}
 
 	// Set up routes
@@ -69,7 +69,7 @@ func (h *Api) handleSummitGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	summit, err := FetchSummit(h.DB, summitId, page, h.Config.ItemsPerPage)
+	summit, err := h.Storage.FetchSummit(summitId, page, h.Config.ItemsPerPage)
 	if err != nil {
 		log.Printf("Failed to fetch summit %s/%s: %v", ridgeId, summitId, err)
 		h.writeError(w, serverError)
@@ -93,7 +93,7 @@ func (h *Api) handleSummitPut(w http.ResponseWriter, r *http.Request) {
 	ridgeId := chi.URLParam(r, "ridgeId")
 	summitId := chi.URLParam(r, "summitId")
 
-	summit, err := FetchSummit(h.DB, summitId, 1, h.Config.ItemsPerPage)
+	summit, err := h.Storage.FetchSummit(summitId, 1, h.Config.ItemsPerPage)
 	if err != nil {
 		log.Printf("Failed to fetch summit %s/%s: %v", ridgeId, summitId, err)
 		h.writeError(w, serverError)
@@ -113,7 +113,7 @@ func (h *Api) handleSummitPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = UpdateClimb(h.DB, summit.Id, userId, ied, comment)
+	err = h.Storage.UpdateClimb(summit.Id, userId, ied, comment)
 	if err != nil {
 		log.Printf("Failed to update climb: %v", err)
 		h.writeError(w, serverError)
@@ -125,7 +125,7 @@ func (h *Api) handleSummitPut(w http.ResponseWriter, r *http.Request) {
 
 func (h *Api) handleSummits(w http.ResponseWriter, r *http.Request) {
 	userId := h.SM.GetInt64(r.Context(), UserIdKey)
-	summits, err := FetchSummits(h.DB, userId)
+	summits, err := h.Storage.FetchSummits(userId)
 	if err != nil {
 		log.Printf("Failed to fetch summits from db: %v", err)
 		h.writeError(w, serverError)
@@ -150,7 +150,7 @@ func (h *Api) handleTop(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	top, err := FetchTop(h.DB, page, h.Config.ItemsPerPage)
+	top, err := h.Storage.FetchTop(page, h.Config.ItemsPerPage)
 	if err != nil {
 		log.Printf("Failed to fetch top: %v", err)
 		h.writeError(w, serverError)
@@ -179,7 +179,7 @@ func (h *Api) handleUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Api) handleUserById(w http.ResponseWriter, r *http.Request, userId int64) {
-	user, err := GetUserById(h.DB, userId)
+	user, err := h.Storage.GetUserById(userId)
 	if err != nil {
 		log.Printf("Failed to get user %d by ID: %v", userId, err)
 		h.writeError(w, serverError)

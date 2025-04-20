@@ -4,31 +4,36 @@
             "user_id": 1,
             "user_name": "Kaitlin Cross",
             "climbs_num": 1,
-            "place": 6
+            "place": 6,
+            "user_image": "users/1_S.jpg"
         },
         {
             "user_id": 2,
             "user_name": "Steven Guzman",
             "climbs_num": 1,
-            "place": 7
+            "place": 7,
+            "user_image": "users/2_S.jpg"
         },
         {
             "user_id": 4,
             "user_name": "Sophia Gilbert",
             "climbs_num": 1,
-            "place": 8
+            "place": 8,
+            "user_image": "users/4_S.jpg"
         },
         {
             "user_id": 3,
             "user_name": "Dr. Kevin Davenport Jr.",
             "climbs_num": 1,
-            "place": 9
+            "place": 9,
+            "user_image": "users/3_S.jpg"
         },
         {
             "user_id": 8,
             "user_name": "Cameron Smith",
             "climbs_num": 1,
-            "place": 10
+            "place": 10,
+            "user_image": "users/8_S.jpg"
         }
     ],
     "page": 2,

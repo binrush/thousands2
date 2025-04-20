@@ -22,7 +22,7 @@ type Provider interface {
 	GetSrcId() int
 	GetConfig() *oauth2.Config
 	GetUserId(token *oauth2.Token) (string, error)
-	Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error)
+	Register(token *oauth2.Token, storage *Storage, ctx context.Context) (int64, error)
 }
 
 type AuthProviders map[string]Provider
@@ -67,7 +67,7 @@ func (provider *VKProvider) GetUserId(token *oauth2.Token) (string, error) {
 	return strconv.FormatInt(int64(userIdField.(float64)), 10), nil
 }
 
-func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx context.Context) (int64, error) {
+func (provider *VKProvider) Register(token *oauth2.Token, storage *Storage, ctx context.Context) (int64, error) {
 	oauthClient := provider.GetConfig().Client(ctx, token)
 	req, err := http.NewRequest("GET", provider.BaseUrl+"/method/users.get", nil)
 	if err != nil {
@@ -98,8 +98,7 @@ func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx cont
 	}
 	userData := vkResponse.Response[0]
 	var userId int64
-	userId, err = CreateUser(
-		db,
+	userId, err = storage.CreateUser(
 		fmt.Sprintf("%s %s", userData.FirstName, userData.LastName),
 		strconv.Itoa(userData.Id), provider.GetSrcId())
 	if err != nil {
@@ -121,7 +120,7 @@ func (provider *VKProvider) Register(token *oauth2.Token, db *Database, ctx cont
 			}
 			imageKey := fmt.Sprintf("users/%d_%s.jpg", userId, img.size)
 			// TODO: upload image to S3
-			err = UpdateUserImage(db, userId, img.size, imageKey)
+			err = storage.UpdateUserImage(userId, img.size, imageKey)
 			if err != nil {
 				log.Printf("Failed to store image for user %d: %v", userId, err)
 			}
@@ -145,11 +144,11 @@ func downloadImage(client http.Client, url string) ([]byte, error) {
 	}
 	return img, nil
 	/*
-	err = UpdateUserImage(db, userId, size, img)
-	if err != nil {
-		return fmt.Errorf("failed to store image %s in database: %v", url, err)
-	}
-	return nil
+		err = UpdateUserImage(db, userId, size, img)
+		if err != nil {
+			return fmt.Errorf("failed to store image %s in database: %v", url, err)
+		}
+		return nil
 	*/
 }
 

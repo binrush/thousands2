@@ -174,7 +174,15 @@ type SummitClimb struct {
 	Comment   string      `json:"comment"`
 }
 
-func LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {
+type Storage struct {
+	db *Database
+}
+
+func NewStorage(db *Database) *Storage {
+	return &Storage{db: db}
+}
+
+func (s *Storage) LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {
 	imageStmt, err := tx.Prepare(
 		`INSERT INTO summit_images 
 			(url, summit_id, comment) VALUES (?, ?, ?)`)
@@ -191,7 +199,7 @@ func LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {
 	return nil
 }
 
-func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
+func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 	summitFiles, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -231,7 +239,7 @@ func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 			return err
 		}
 		if len(summit.Images) > 0 {
-			err = LoadSummitImages(summit.Images, summit.Id, tx)
+			err = s.LoadSummitImages(summit.Images, summit.Id, tx)
 			if err != nil {
 				return err
 			}
@@ -244,8 +252,8 @@ func LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 	return nil
 }
 
-func LoadSummits(dataDir string, db *Database) error {
-	tx, err := db.Pool.Begin()
+func (s *Storage) LoadSummits(dataDir string) error {
+	tx, err := s.db.Pool.Begin()
 	if err != nil {
 		return err
 	}
@@ -294,7 +302,7 @@ func LoadSummits(dataDir string, db *Database) error {
 			return err
 		}
 
-		if err = LoadRidge(ridgePath, ridge.Id, tx); err != nil {
+		if err = s.LoadRidge(ridgePath, ridge.Id, tx); err != nil {
 			return err
 		}
 	}
@@ -304,7 +312,7 @@ func LoadSummits(dataDir string, db *Database) error {
 	return nil
 }
 
-func FetchSummits(db *Database, userId int64) (*SummitsTable, error) {
+func (s *Storage) FetchSummits(userId int64) (*SummitsTable, error) {
 	summits := make([]SummitsTableItem, 0)
 	query := `SELECT s.id, s.name, s.height, s.lat, s.lng, r.name, r.id, r.color, COUNT(c.user_id), 
 			ROW_NUMBER() OVER (ORDER BY s.height DESC) as rank,
@@ -330,7 +338,7 @@ func FetchSummits(db *Database, userId int64) (*SummitsTable, error) {
 		GROUP BY s.id, s.name, s.height, s.lat, r.name
 		ORDER BY s.id
 	`
-	rows, err := db.Pool.Query(query, userId)
+	rows, err := s.db.Pool.Query(query, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -350,9 +358,9 @@ func FetchSummits(db *Database, userId int64) (*SummitsTable, error) {
 	return &SummitsTable{summits}, nil
 }
 
-func FetchSummitImages(db *Database, summit_id string) ([]SummitImage, error) {
+func (s *Storage) FetchSummitImages(summit_id string) ([]SummitImage, error) {
 	query := `SELECT url, comment FROM summit_images WHERE summit_id = ?`
-	rows, err := db.Pool.Query(query, summit_id)
+	rows, err := s.db.Pool.Query(query, summit_id)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +377,7 @@ func FetchSummitImages(db *Database, summit_id string) ([]SummitImage, error) {
 	return images, nil
 }
 
-func FetchSummitClimbs(db *Database, summitId string, page, itemsPerPage int) ([]SummitClimb, error) {
+func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]SummitClimb, error) {
 	offset := (page - 1) * itemsPerPage
 	query := `
 		SELECT c.user_id, u.name, ui.url, c.year, c.month, c.day, c.comment 
@@ -379,7 +387,7 @@ func FetchSummitClimbs(db *Database, summitId string, page, itemsPerPage int) ([
 		WHERE c.summit_id = ?
 		ORDER BY c.year DESC, c.month DESC, c.day DESC
 		LIMIT ? OFFSET ?`
-	rows, err := db.Pool.Query(query, summitId, itemsPerPage, offset)
+	rows, err := s.db.Pool.Query(query, summitId, itemsPerPage, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +416,7 @@ func FetchSummitClimbs(db *Database, summitId string, page, itemsPerPage int) ([
 	return climbs, nil
 }
 
-func FetchSummit(db *Database, summitId string, page, itemsPerPage int) (*Summit, error) {
+func (s *Storage) FetchSummit(summitId string, page, itemsPerPage int) (*Summit, error) {
 	var summit Summit
 	var ridge Ridge
 	summit.Name = new(string)
@@ -422,7 +430,7 @@ func FetchSummit(db *Database, summitId string, page, itemsPerPage int) (*Summit
 	FROM summits s INNER JOIN ridges r ON s.ridge_id = r.id
 	WHERE s.id = ?
 	`
-	err := db.Pool.QueryRow(query, summitId).Scan(&summit.Id,
+	err := s.db.Pool.QueryRow(query, summitId).Scan(&summit.Id,
 		&summit.Name, &summit.NameAlt, &summit.Interpretation,
 		&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
 		&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
@@ -434,22 +442,22 @@ func FetchSummit(db *Database, summitId string, page, itemsPerPage int) (*Summit
 		return nil, err
 	}
 
-	summit.Images, err = FetchSummitImages(db, summit.Id)
+	summit.Images, err = s.FetchSummitImages(summit.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	summit.Climbs, err = FetchSummitClimbs(db, summit.Id, page, itemsPerPage)
+	summit.Climbs, err = s.FetchSummitClimbs(summit.Id, page, itemsPerPage)
 	if err != nil {
 		return nil, err
 	}
 	return &summit, nil
 }
 
-func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
+func (s *Storage) FetchTop(page, itemsPerPage int) (*Top, error) {
 	var result Top
 	result.Page = page
-	tx, err := db.Pool.Begin()
+	tx, err := s.db.Pool.Begin()
 	defer tx.Commit()
 	query := `SELECT COUNT(DISTINCT user_id) 
         FROM users INNER JOIN climbs ON users.id=climbs.user_id`
@@ -496,12 +504,12 @@ func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
 	return &result, nil
 }
 
-func CreateUser(db *Database, Name, OauthId string, Src int /*, Image, Preview string*/) (int64, error) {
-	db.WriteLock.Lock()
-	defer db.WriteLock.Unlock()
+func (s *Storage) CreateUser(Name, OauthId string, Src int) (int64, error) {
+	s.db.WriteLock.Lock()
+	defer s.db.WriteLock.Unlock()
 
 	query := "INSERT INTO users (name, oauth_id, src) VALUES (?, ?, ?)"
-	res, err := db.Pool.Exec(query, Name, OauthId, Src)
+	res, err := s.db.Pool.Exec(query, Name, OauthId, Src)
 	if err != nil {
 		return 0, err
 	}
@@ -513,7 +521,7 @@ func CreateUser(db *Database, Name, OauthId string, Src int /*, Image, Preview s
 	return userId, nil
 }
 
-func getUser(row *sql.Row) (*User, error) {
+func (s *Storage) getUser(row *sql.Row) (*User, error) {
 	var user User
 	err := row.Scan(&user.Id, &user.Name, &user.OauthId, &user.Src)
 	if err == sql.ErrNoRows {
@@ -525,34 +533,34 @@ func getUser(row *sql.Row) (*User, error) {
 	return &user, nil
 }
 
-func GetUserById(db *Database, id int64) (*User, error) {
+func (s *Storage) GetUserById(id int64) (*User, error) {
 	query := "SELECT id, name, oauth_id, src FROM users WHERE id=?"
-	return getUser(db.Pool.QueryRow(query, id))
+	return s.getUser(s.db.Pool.QueryRow(query, id))
 }
 
-func GetUser(db *Database, oauthId string, src int) (*User, error) {
+func (s *Storage) GetUser(oauthId string, src int) (*User, error) {
 	query := "SELECT id, name, oauth_id, src FROM users WHERE oauth_id=? AND src=?"
-	return getUser(db.Pool.QueryRow(query, oauthId, src))
+	return s.getUser(s.db.Pool.QueryRow(query, oauthId, src))
 }
 
-func UpdateUserImage(db *Database, userId int64, size string, url string) error {
-	db.WriteLock.Lock()
-	defer db.WriteLock.Unlock()
+func (s *Storage) UpdateUserImage(userId int64, size string, url string) error {
+	s.db.WriteLock.Lock()
+	defer s.db.WriteLock.Unlock()
 
 	query := `INSERT INTO user_images (user_id, size, url) VALUES (?, ?, ?)
 	ON CONFLICT (user_id, size) DO UPDATE SET url=excluded.url
 	`
-	_, err := db.Pool.Exec(query, userId, size, url)
+	_, err := s.db.Pool.Exec(query, userId, size, url)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func GetUserImage(db *Database, userId int64, size string) (string, error) {
+func (s *Storage) GetUserImage(userId int64, size string) (string, error) {
 	query := "SELECT url FROM user_images WHERE user_id=? AND size=?"
 	var img string
-	row := db.Pool.QueryRow(query, userId, size)
+	row := s.db.Pool.QueryRow(query, userId, size)
 	err := row.Scan(&img)
 	if err == sql.ErrNoRows {
 		return "", nil
@@ -563,9 +571,9 @@ func GetUserImage(db *Database, userId int64, size string) (string, error) {
 	return img, nil
 }
 
-func UpdateClimb(db *Database, summitId string, userId int64, date InexactDate, comment string) error {
-	db.WriteLock.Lock()
-	defer db.WriteLock.Unlock()
+func (s *Storage) UpdateClimb(summitId string, userId int64, date InexactDate, comment string) error {
+	s.db.WriteLock.Lock()
+	defer s.db.WriteLock.Unlock()
 
 	query := `INSERT INTO climbs (
 		user_id, summit_id, year, month, day, comment
@@ -573,7 +581,7 @@ func UpdateClimb(db *Database, summitId string, userId int64, date InexactDate, 
 	ON CONFLICT (user_id, summit_id) 
 	DO UPDATE SET year=excluded.year, month=excluded.month, day=excluded.day, comment=excluded.comment
 	`
-	_, err := db.Pool.Exec(
+	_, err := s.db.Pool.Exec(
 		query, userId, summitId,
 		toSqlNullInt64(date.Year), toSqlNullInt64(date.Month), toSqlNullInt64(date.Day), comment)
 	if err != nil {

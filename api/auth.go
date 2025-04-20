@@ -29,15 +29,15 @@ func GenerateRandomString(size int) string {
 
 type AuthServer struct {
 	Providers AuthProviders
-	DB        *Database
+	Storage   *Storage
 	SM        *scs.SessionManager
 	router    *chi.Mux
 }
 
-func NewAuthServer(providers AuthProviders, db *Database, sm *scs.SessionManager) *AuthServer {
+func NewAuthServer(providers AuthProviders, storage *Storage, sm *scs.SessionManager) *AuthServer {
 	as := &AuthServer{
 		Providers: providers,
-		DB:        db,
+		Storage:   storage,
 		SM:        sm,
 		router:    chi.NewRouter(),
 	}
@@ -107,7 +107,7 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := GetUser(h.DB, oauthUserId, provider.GetSrcId())
+	user, err := h.Storage.GetUser(oauthUserId, provider.GetSrcId())
 	if err != nil {
 		log.Printf("Failed to obtain user data from DB: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -120,7 +120,7 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 		userId = user.Id
 	} else {
 		// user does not exist yet, register
-		userId, err = provider.Register(token, h.DB, r.Context())
+		userId, err = provider.Register(token, h.Storage, r.Context())
 		if err != nil {
 			log.Printf("Failed to register user: %v", err)
 			http.Error(w, "Invalid request", http.StatusBadRequest)

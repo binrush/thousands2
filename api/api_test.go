@@ -64,12 +64,13 @@ func TestSummitsTableHandler(t *testing.T) {
 	sm := scs.New()
 	sm.Store = &MockSessionStore{}
 
-	if err := LoadSummits(conf.Datadir, db); err != nil {
+	storage := NewStorage(db)
+	if err := storage.LoadSummits(conf.Datadir); err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	api := NewApi(conf, db, sm)
+	api := NewApi(conf, storage, sm)
 	handler := sm.LoadAndSave(api.router)
 
 	cases := []struct {
@@ -137,9 +138,10 @@ func TestHandlersClientErrors(t *testing.T) {
 		{"/api/user/123", http.StatusNotFound},
 	}
 	db := MockDatabase(t)
+	storage := NewStorage(db)
 	sm := scs.New()
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
-	app := NewAppServer(conf, db, sm, "")
+	app := NewAppServer(conf, storage, sm, "")
 
 	for _, tt := range cases {
 
@@ -180,12 +182,13 @@ func TestHandlersHappyPath(t *testing.T) {
 		ItemsPerPage: 5,
 	}
 
-	if err := LoadSummits(conf.Datadir, db); err != nil {
+	storage := NewStorage(db)
+	if err := storage.LoadSummits(conf.Datadir); err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	api := NewApi(conf, db, nil)
+	api := NewApi(conf, storage, nil)
 
 	for _, tt := range cases {
 		req, err := http.NewRequest("GET", tt.url, nil)

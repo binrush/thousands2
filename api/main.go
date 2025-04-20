@@ -23,10 +23,10 @@ type App struct {
 	router     *chi.Mux
 }
 
-func NewAppServer(conf *RuntimeConfig, db *Database, sm *scs.SessionManager, uiDir string) *App {
+func NewAppServer(conf *RuntimeConfig, storage *Storage, sm *scs.SessionManager, uiDir string) *App {
 	app := &App{
-		Api:        NewApi(conf, db, sm),
-		AuthServer: NewAuthServer(GetAuthProviders(os.Getenv("BASE_URL")), db, sm),
+		Api:        NewApi(conf, storage, sm),
+		AuthServer: NewAuthServer(GetAuthProviders(os.Getenv("BASE_URL")), storage, sm),
 		UIDir:      uiDir,
 		SM:         sm,
 		router:     chi.NewRouter(),
@@ -63,14 +63,16 @@ func main() {
 	}
 	log.Printf("Migrations completed")
 
+	storage := NewStorage(db)
+
 	log.Printf("Loading summits data to database...")
-	err = LoadSummits(conf.Datadir, db)
+	err = storage.LoadSummits(conf.Datadir)
 	if err != nil {
 		log.Fatalf("Failed to load summits: %v", err)
 	}
 	log.Printf("Summits data loaded")
 
 	sm := scs.New()
-	app := NewAppServer(conf, db, sm, os.Args[2])
+	app := NewAppServer(conf, storage, sm, os.Args[2])
 	log.Fatal(http.ListenAndServe(":5000", app.router))
 }

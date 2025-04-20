@@ -163,11 +163,12 @@ func TestVKRegister(t *testing.T) {
 		AccessToken: MockAccessToken,
 	}
 	db := MockDatabase(t)
-	userId, err := vk.Register(token, db, context.Background())
+	storage := NewStorage(db)
+	userId, err := vk.Register(token, storage, context.Background())
 	if err != nil {
 		t.Fatalf("Registration error: %v", err)
 	}
-	user, err := GetUser(db, MockOauthUserId, 1)
+	user, err := storage.GetUser(MockOauthUserId, 1)
 	if err != nil {
 		t.Fatalf("Failed to get user %d: %v", userId, err)
 	}
@@ -189,7 +190,7 @@ func TestVKRegister(t *testing.T) {
 		{ImageMedium, "testdata/ava_m.jpg"},
 	}
 	for _, tt := range cases {
-		img, err := GetUserImage(db, userId, tt.size)
+		img, err := storage.GetUserImage(userId, tt.size)
 		if err != nil {
 			t.Fatalf("Failed to get image for user %d: %v", userId, err)
 		}
@@ -224,7 +225,8 @@ func TestVKRegisterError(t *testing.T) {
 		AccessToken: "incorrect token",
 	}
 	db := MockDatabase(t)
-	userId, err := vk.Register(token, db, context.Background())
+	storage := NewStorage(db)
+	userId, err := vk.Register(token, storage, context.Background())
 	if err == nil {
 		t.Fatalf("Expected registration error, got userId=%d, err=%v", userId, err)
 	}

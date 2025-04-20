@@ -21,7 +21,8 @@ func TestLoadSummits(t *testing.T) {
 	for _, datadir := range cases {
 		db := MockDatabase(t)
 		defer db.Pool.Close()
-		err := LoadSummits(datadir, db)
+		storage := NewStorage(db)
+		err := storage.LoadSummits(datadir)
 		if err == nil {
 			t.Fatalf("Error expected to be non-nil for %s", datadir)
 		}

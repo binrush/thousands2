@@ -4,31 +4,36 @@
             "user_id": 9,
             "user_name": "Stephen Peters DVM",
             "climbs_num": 3,
-            "place": 1
+            "place": 1,
+            "user_image": "users/9_S.jpg"
         },
         {
             "user_id": 5,
             "user_name": "Jonathan Nguyen",
             "climbs_num": 3,
-            "place": 2
+            "place": 2,
+            "user_image": "users/5_S.jpg"
         },
         {
             "user_id": 10,
             "user_name": "Amanda Chan",
             "climbs_num": 2,
-            "place": 3
+            "place": 3,
+            "user_image": "users/10_S.jpg"
         },
         {
             "user_id": 7,
             "user_name": "Todd Bowen",
             "climbs_num": 2,
-            "place": 4
+            "place": 4,
+            "user_image": "users/7_S.jpg"
         },
         {
             "user_id": 11,
             "user_name": "Aaron Thompson",
             "climbs_num": 2,
-            "place": 5
+            "place": 5,
+            "user_image": "users/11_S.jpg"
         }
     ],
     "page": 1,
