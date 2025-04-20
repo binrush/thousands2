@@ -1,16 +1,16 @@
 <script setup>
-import { ref, onMounted, provide } from 'vue'
+import { ref, provide, watch } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { useAuth } from './auth'
 
 const currentUser = ref(null)
 const isMobileMenuOpen = ref(false)
-const { fetchAuthStatus, authState } = useAuth()
+const { authState } = useAuth()
 
-onMounted(async () => {
-  await fetchAuthStatus()
-  currentUser.value = authState.user
-})
+// Watch for auth state changes to update currentUser
+watch(() => authState.user, (newUser) => {
+  currentUser.value = newUser
+}, { immediate: true })
 
 provide('currentUser', currentUser)
 
@@ -86,9 +86,10 @@ const toggleMobileMenu = () => {
 
     <!-- Main content -->
     <main class="flex-1 mt-16">
-      <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div v-if="$route.name !== 'map'" class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <RouterView />
       </div>
+      <RouterView v-else />
     </main>
 
     <!-- Footer -->

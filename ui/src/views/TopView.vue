@@ -15,6 +15,22 @@
                 <div class="w-10 h-10 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full mr-4 font-semibold">
                   {{ climber.place }}
                 </div>
+                <div class="w-10 h-10 mr-4">
+                  <img 
+                    v-if="climber.user_image" 
+                    :src="getImageUrl(climber.user_image)" 
+                    :alt="climber.user_name"
+                    class="w-full h-full object-cover rounded-full"
+                  >
+                  <div 
+                    v-else 
+                    class="w-full h-full bg-gray-200 rounded-full flex items-center justify-center text-gray-500"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                </div>
                 <div class="flex-grow">
                   <RouterLink 
                     :to="`/user/${climber.user_id}`"
@@ -116,6 +132,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { getImageUrl } from '../utils/images'
 
 const topClimbers = ref({
   items: [],

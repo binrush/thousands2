@@ -29,7 +29,6 @@ func (e *ApiError) Error() string {
 
 var pathNotFoundError = &ApiError{notFoundMsg, http.StatusNotFound}
 var serverError = &ApiError{internalServerErrorMsg, http.StatusInternalServerError}
-var methodNotAllowedError = &ApiError{methodNotAllowedMsg, http.StatusInternalServerError}
 var authRequired = &ApiError{authRequiredMsg, http.StatusUnauthorized}
 
 type Api struct {

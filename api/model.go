@@ -148,6 +148,7 @@ type SummitsTable struct {
 type TopItem struct {
 	UserId    int    `json:"user_id"`
 	UserName  string `json:"user_name"`
+	UserImage string `json:"user_image"`
 	ClimbsNum int    `json:"climbs_num"`
 	Place     int    `json:"place"`
 }
@@ -462,10 +463,11 @@ func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
 	}
 	result.TotalPages = totalItems/itemsPerPage + 1
 	result.Items = make([]TopItem, 0)
-	query = `SELECT users.id, users.name, count(*) as climbs, 
+	query = `SELECT users.id, users.name, ui.url, count(*) as climbs, 
             MAX(coalesce(day, 32) | (coalesce(month, 13) << 8) | (coalesce(year, 2100) << 16)) 
                 AS last_climb 
         FROM users INNER JOIN climbs ON users.id=climbs.user_id 
+        LEFT JOIN user_images ui ON users.id = ui.user_id AND ui.size = 'S'
         GROUP BY users.id, users.name
         ORDER BY climbs DESC, last_climb ASC 
         LIMIT ? OFFSET ?`
@@ -479,9 +481,13 @@ func FetchTop(db *Database, page, itemsPerPage int) (*Top, error) {
 	for rows.Next() {
 		var ti TopItem
 		var lastClimb int
-		err := rows.Scan(&ti.UserId, &ti.UserName, &ti.ClimbsNum, &lastClimb)
+		var imageUrl sql.NullString
+		err := rows.Scan(&ti.UserId, &ti.UserName, &imageUrl, &ti.ClimbsNum, &lastClimb)
 		if err != nil {
 			return nil, err
+		}
+		if imageUrl.Valid {
+			ti.UserImage = imageUrl.String
 		}
 		ti.Place = offset + i + 1
 		result.Items = append(result.Items, ti)

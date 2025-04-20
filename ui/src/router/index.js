@@ -54,6 +54,7 @@ const router = createRouter({
       path: '/user/me',
       name: 'user_profile',
       component: UserView,
+      props: { user_id: 'me' },
       meta: { 
         title: 'Мой профиль',
         requiresAuth: true 
@@ -69,11 +70,16 @@ const router = createRouter({
 })
 
 // Navigation guard
-router.beforeEach((to, from, next) => {
-  const { authState } = useAuth()
+router.beforeEach(async (to, from, next) => {
+  const { fetchAuthStatus, authState } = useAuth()
   
   // Update document title
   document.title = to.meta.title ? `${to.meta.title} | 1000+` : '1000+'
+  
+  // Ensure auth state is initialized
+  if (!authState.isInitialized) {
+    await fetchAuthStatus()
+  }
   
   // Check if route requires authentication
   if (to.meta.requiresAuth && !authState.user) {

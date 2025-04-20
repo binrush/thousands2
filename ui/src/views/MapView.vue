@@ -83,11 +83,15 @@ onMounted(() => {
 <style scoped>
 .map-view {
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 4rem - 4rem); /* viewport height minus header (4rem) and footer (4rem) */
+  position: relative;
 }
 
 .map-container {
   width: 100%;
   height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 </style>

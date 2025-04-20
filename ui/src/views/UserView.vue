@@ -1,6 +1,13 @@
 <script setup>
-import { inject, ref, onMounted } from 'vue'
+import { inject, ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+
+const props = defineProps({
+  user_id: {
+    type: String,
+    default: null
+  }
+})
 
 const currentUser = inject('currentUser')
 const user = ref(null)
@@ -10,7 +17,15 @@ const route = useRoute()
 
 async function loadUser() {
   try {
-    const userId = route.params.user_id
+    isLoading.value = true
+    error.value = null
+    
+    const userId = props.user_id || route.params.user_id
+    if (!userId) {
+      error.value = 'Неверный URL профиля'
+      return
+    }
+
     if (userId === 'me') {
       if (!currentUser.value) {
         error.value = 'Пожалуйста, войдите в систему для просмотра своего профиля'
@@ -18,7 +33,7 @@ async function loadUser() {
       }
       user.value = currentUser.value
     } else {
-      const response = await fetch(`/api/users/${userId}`)
+      const response = await fetch(`/api/user/${userId}`)
       if (response.ok) {
         user.value = await response.json()
       } else {
@@ -32,6 +47,11 @@ async function loadUser() {
     isLoading.value = false
   }
 }
+
+// Watch for route changes to reload user data
+watch(() => route.params.user_id, () => {
+  loadUser()
+})
 
 onMounted(() => {
   loadUser()

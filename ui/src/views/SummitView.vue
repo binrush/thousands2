@@ -38,10 +38,6 @@ watch(() => route.params, () => {
   currentPage.value = 1
   fetchSummit(1)
 }, { immediate: true })
-
-onMounted(() => {
-  fetchSummit(currentPage.value)
-})
 </script>
 
 <template>
