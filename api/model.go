@@ -43,13 +43,13 @@ func (id *InexactDate) parseString(date string) ([]int64, error) {
 	}
 	parts := strings.Split(date, ".")
 	if len(parts) > 3 {
-		return nil, fmt.Errorf("Invalid date format: %s", date)
+		return nil, fmt.Errorf("invalid date format: %s", date)
 	}
 	partsInt := make([]int64, len(parts))
 	for i, p := range parts {
 		pi, err := strconv.ParseInt(p, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("Invalid date format: %s", date)
+			return nil, fmt.Errorf("invalid date format: %s", date)
 		}
 		partsInt[i] = pi
 	}
@@ -79,11 +79,11 @@ func (id *InexactDate) Parse(date string) error {
 		validationValue = fmt.Sprintf("%04d-%02d-%02d", year, month, day)
 	default:
 		// should not happen
-		return fmt.Errorf("Invalid data: %v", parts)
+		return fmt.Errorf("invalid data: %v", parts)
 	}
 	_, err = time.Parse(dateFormat, validationValue)
 	if err != nil {
-		return fmt.Errorf("Failed to parse inexact date %s: %v", date, err)
+		return fmt.Errorf("failed to parse inexact date %s: %v", date, err)
 	}
 
 	id.Year, id.Month, id.Day = year, month, day

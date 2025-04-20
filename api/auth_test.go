@@ -412,6 +412,9 @@ func TestAuthFlowUserExists(t *testing.T) {
 		NewMockOauthConfig(mockOauthServer.URL, appServer.URL+"/auth/authorized/mock"))
 
 	_, err := app.AuthServer.Storage.CreateUser("Mock Mock", MockOauthUserId, 1)
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
 
 	client := NewTestClient(t)
 	resp, err := client.Get(appServer.URL + "/auth/oauth/mock")

@@ -62,7 +62,7 @@ func (provider *VKProvider) GetSrcId() int {
 func (provider *VKProvider) GetUserId(token *oauth2.Token) (string, error) {
 	userIdField := token.Extra("user_id")
 	if userIdField == nil {
-		return "", fmt.Errorf("Failed to get VK user Id")
+		return "", fmt.Errorf("failed to get VK user Id")
 	}
 	return strconv.FormatInt(int64(userIdField.(float64)), 10), nil
 }

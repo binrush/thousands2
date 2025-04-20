@@ -112,7 +112,7 @@ func HandleUserGet(w http.ResponseWriter, r *http.Request) {
 	}
 	`
 	if r.Header.Get("Authorization") != "Bearer "+MockAccessToken {
-		fmt.Fprintf(w, errorResponse)
+		fmt.Fprint(w, errorResponse)
 	} else {
 		userId, _ := strconv.Atoi(MockOauthUserId)
 		fmt.Fprintf(w, successfulResponse, userId, r.Host, r.Host)
