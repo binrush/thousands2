@@ -164,6 +164,8 @@ type User struct {
 	OauthId string `json:"oauth_id"`
 	Src     int    `json:"src"`
 	Name    string `json:"name"`
+	ImageS  string `json:"image_s"`
+	ImageM  string `json:"image_m"`
 }
 
 type SummitClimb struct {
@@ -527,6 +529,14 @@ func (s *Storage) getUser(row *sql.Row) (*User, error) {
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
+	if err != nil {
+		return nil, err
+	}
+	user.ImageS, err = s.GetUserImage(user.Id, "S")
+	if err != nil {
+		return nil, err
+	}
+	user.ImageM, err = s.GetUserImage(user.Id, "M")
 	if err != nil {
 		return nil, err
 	}

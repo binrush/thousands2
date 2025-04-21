@@ -46,7 +46,7 @@ func TestVkGetUserId(t *testing.T) {
 		{
 			&oauth2.Token{},
 			"",
-			errors.New("Failed to get VK user Id"),
+			errors.New("failed to get VK user Id"),
 		},
 		{
 			tokenWithUserId,
@@ -178,6 +178,8 @@ func TestVKRegister(t *testing.T) {
 		OauthId: MockOauthUserId,
 		Src:     1,
 		Name:    MockUserName,
+		ImageS:  "users/13_S.jpg",
+		ImageM:  "users/13_M.jpg",
 	}
 	if *user != expectedUser {
 		t.Fatalf("Unexpected user created: %v, expected %v", *user, expectedUser)

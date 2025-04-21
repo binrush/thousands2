@@ -2,5 +2,7 @@
   "id": 5,
   "oauth_id": "1283",
   "src": 1,
-  "name": "Jonathan Nguyen"
+  "name": "Jonathan Nguyen",
+  "image_s": "users/5_S.jpg",
+  "image_m": "users/5_M.jpg"
 }
