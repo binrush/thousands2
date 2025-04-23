@@ -49,6 +49,7 @@ func NewApi(config *RuntimeConfig, storage *Storage, sm *scs.SessionManager) *Ap
 	// Set up routes
 	api.router.Get("/summit/{ridgeId}/{summitId}", api.handleSummitGet)
 	api.router.Put("/summit/{ridgeId}/{summitId}", api.handleSummitPut)
+	api.router.Get("/summit/{ridgeId}/{summitId}/climbs", api.handleSummitClimbs)
 	api.router.Get("/summits", api.handleSummits)
 	api.router.Get("/top", api.handleTop)
 	api.router.Get("/user/me", api.handleUserMe)
@@ -121,6 +122,40 @@ func (h *Api) handleSummitPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Api) handleSummitClimbs(w http.ResponseWriter, r *http.Request) {
+	ridgeId := chi.URLParam(r, "ridgeId")
+	summitId := chi.URLParam(r, "summitId")
+
+	page := 1
+	pageParam := r.URL.Query()["page"]
+	if len(pageParam) == 1 {
+		if p, err := strconv.Atoi(pageParam[0]); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	// Fetch only the climbs data
+	climbs, totalClimbs, err := h.Storage.FetchSummitClimbs(summitId, page, h.Config.ItemsPerPage)
+	if err != nil {
+		log.Printf("Failed to fetch climbs for summit %s/%s: %v", ridgeId, summitId, err)
+		h.writeError(w, serverError)
+		return
+	}
+
+	// Return just the climbs data
+	response := struct {
+		Climbs      []SummitClimb `json:"climbs"`
+		TotalClimbs int           `json:"total_climbs"`
+		Page        int           `json:"page"`
+	}{
+		Climbs:      climbs,
+		TotalClimbs: totalClimbs,
+		Page:        page,
+	}
+
+	h.writeJSON(w, response)
 }
 
 func (h *Api) handleSummits(w http.ResponseWriter, r *http.Request) {

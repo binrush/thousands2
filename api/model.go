@@ -111,8 +111,6 @@ type Summit struct {
 	Coordinates    [2]float32    `json:"coordinates"`
 	Ridge          *Ridge        `json:"ridge"`
 	Images         []SummitImage `json:"images"`
-	Climbs         []SummitClimb `json:"climbs"`
-	TotalClimbs    int           `json:"total_climbs"`
 }
 
 func (s *Summit) JSON() ([]byte, error) {
@@ -456,10 +454,6 @@ func (s *Storage) FetchSummit(summitId string, page, itemsPerPage int) (*Summit,
 		return nil, err
 	}
 
-	summit.Climbs, summit.TotalClimbs, err = s.FetchSummitClimbs(summit.Id, page, itemsPerPage)
-	if err != nil {
-		return nil, err
-	}
 	return &summit, nil
 }
 
