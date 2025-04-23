@@ -392,7 +392,7 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 		INNER JOIN users u ON c.user_id = u.id
 		LEFT JOIN user_images ui ON u.id = ui.user_id AND ui.size = 'S'
 		WHERE c.summit_id = ?
-		ORDER BY c.year DESC, c.month DESC, c.day DESC
+		ORDER BY year ASC NULLS LAST, month ASC NULLS LAST, day ASC NULLS LAST
 		LIMIT ? OFFSET ?`
 	rows, err := s.db.Pool.Query(query, summitId, itemsPerPage, offset)
 	if err != nil {
@@ -411,13 +411,17 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 		if url.Valid {
 			climb.UserImage = url.String
 		}
-		if year.Valid && month.Valid && day.Valid {
-			climb.Date = InexactDate{
-				Year:  year.Int64,
-				Month: month.Int64,
-				Day:   day.Int64,
-			}
+		climb.Date = InexactDate{}
+		if year.Valid {
+			climb.Date.Year = year.Int64
 		}
+		if month.Valid {
+			climb.Date.Month = month.Int64
+		}
+		if day.Valid {
+			climb.Date.Day = day.Int64
+		}
+
 		climbs = append(climbs, climb)
 	}
 	return climbs, totalClimbs, nil
