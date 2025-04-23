@@ -123,30 +123,40 @@ watch(() => route.params, () => {
           Пока никто не зарегистрировал восхождение
         </div>
 
-        <div v-else class="space-y-4">
-          <div v-for="climb in summit.climbs" :key="climb.user_id" class="flex items-center space-x-4 p-4 hover:bg-gray-50 rounded-lg">
-            <img 
-              v-if="climb.user_image"
-              :src="getImageUrl(climb.user_image)" 
-              :alt="climb.user_name"
-              class="h-12 w-12 rounded-full object-cover"
-            >
-            <img 
-              v-else
-              src="/climber_no_photo.svg" 
-              :alt="climb.user_name"
-              class="h-12 w-12 rounded-full"
-            >
-            <div class="flex-1">
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div 
+            v-for="climb in summit.climbs" 
+            :key="climb.user_id" 
+            class="flex items-start space-x-3 p-3"
+          >
+            <!-- Avatar -->
+            <div class="flex-shrink-0">
+              <img 
+                v-if="climb.user_image"
+                :src="getImageUrl(climb.user_image)" 
+                :alt="climb.user_name"
+                class="h-12 w-12 rounded-full object-cover"
+              >
+              <img 
+                v-else
+                src="/climber_no_photo.svg" 
+                :alt="climb.user_name"
+                class="h-12 w-12 rounded-full"
+              >
+            </div>
+            
+            <!-- User Info -->
+            <div class="flex-1 min-w-0 overflow-hidden">
               <RouterLink 
                 :to="`/user/${climb.user_id}`"
-                class="text-lg font-medium text-gray-900 hover:text-blue-600"
+                class="text-lg font-medium text-gray-900 hover:text-blue-600 block truncate"
               >
                 {{ climb.user_name }}
               </RouterLink>
-              <div class="text-sm">
-                <span v-if="climb.date" class="text-sm text-gray-500">{{ formatRussianDate(climb.date) }}</span>
-                <p v-if="climb.comment">{{ climb.comment }}</p>
+              
+              <div class="text-sm mt-1">
+                <div v-if="climb.date" class="text-gray-500">{{ formatRussianDate(climb.date) }}</div>
+                <div v-if="climb.comment" class="mt-1 line-clamp-2">{{ climb.comment }}</div>
               </div>
             </div>
           </div>
