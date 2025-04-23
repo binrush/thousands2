@@ -112,6 +112,7 @@ type Summit struct {
 	Ridge          *Ridge        `json:"ridge"`
 	Images         []SummitImage `json:"images"`
 	Climbs         []SummitClimb `json:"climbs"`
+	TotalClimbs    int           `json:"total_climbs"`
 }
 
 func (s *Summit) JSON() ([]byte, error) {
@@ -379,7 +380,13 @@ func (s *Storage) FetchSummitImages(summit_id string) ([]SummitImage, error) {
 	return images, nil
 }
 
-func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]SummitClimb, error) {
+func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]SummitClimb, int, error) {
+	totalClimbs := 0
+	countQuery := `SELECT COUNT(*) FROM climbs WHERE summit_id = ?`
+	err := s.db.Pool.QueryRow(countQuery, summitId).Scan(&totalClimbs)
+	if err != nil {
+		return nil, 0, err
+	}
 	offset := (page - 1) * itemsPerPage
 	query := `
 		SELECT c.user_id, u.name, ui.url, c.year, c.month, c.day, c.comment 
@@ -391,7 +398,7 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 		LIMIT ? OFFSET ?`
 	rows, err := s.db.Pool.Query(query, summitId, itemsPerPage, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	climbs := make([]SummitClimb, 0)
@@ -401,7 +408,7 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 		var url sql.NullString
 		err := rows.Scan(&climb.UserId, &climb.UserName, &url, &year, &month, &day, &climb.Comment)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if url.Valid {
 			climb.UserImage = url.String
@@ -415,7 +422,7 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 		}
 		climbs = append(climbs, climb)
 	}
-	return climbs, nil
+	return climbs, totalClimbs, nil
 }
 
 func (s *Storage) FetchSummit(summitId string, page, itemsPerPage int) (*Summit, error) {
@@ -449,7 +456,7 @@ func (s *Storage) FetchSummit(summitId string, page, itemsPerPage int) (*Summit,
 		return nil, err
 	}
 
-	summit.Climbs, err = s.FetchSummitClimbs(summit.Id, page, itemsPerPage)
+	summit.Climbs, summit.TotalClimbs, err = s.FetchSummitClimbs(summit.Id, page, itemsPerPage)
 	if err != nil {
 		return nil, err
 	}
