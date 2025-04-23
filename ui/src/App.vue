@@ -2,6 +2,7 @@
 import { ref, provide, watch } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { useAuth } from './auth'
+import { getImageUrl } from './utils/images'
 
 const currentUser = ref(null)
 const isMobileMenuOpen = ref(false)
@@ -22,70 +23,58 @@ const toggleMobileMenu = () => {
 <template>
   <div class="min-h-screen flex flex-col bg-gray-50">
     <!-- Navigation -->
-    <header class="bg-white shadow-md fixed top-0 left-0 w-full z-50">
-      <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <!-- Logo and desktop menu -->
-          <div class="flex items-center">
-            <RouterLink to="/" class="flex items-center space-x-3">
-              <img src="/logo.svg" alt="Логотип" class="h-10">
+    <nav class="relative bg-white shadow dark:bg-gray-800 fixed top-0 left-0 w-full z-50">
+      <div class="container px-6 py-4 mx-auto">
+        <div class="lg:flex lg:items-center lg:justify-between">
+          <div class="flex items-center justify-between">
+            <RouterLink to="/" class="flex items-center">
+              <img src="/logo.svg" alt="Логотип" class="w-auto h-12 sm:h-14">
             </RouterLink>
-          </div>
-          <div class="hidden md:flex items-center space-x-8">
-            <RouterLink to="/" class="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Вершины</RouterLink>
-            <RouterLink to="/map" class="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Карта</RouterLink>
-            <RouterLink to="/top" class="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Топ</RouterLink>
-            <RouterLink to="/about" class="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">О проекте</RouterLink>
+
+            <!-- Mobile menu button -->
+            <div class="flex lg:hidden">
+              <button @click="toggleMobileMenu" type="button" class="text-gray-500 dark:text-gray-200 hover:text-gray-600 dark:hover:text-gray-400 focus:outline-none focus:text-gray-600 dark:focus:text-gray-400" aria-label="toggle menu">
+                <svg v-if="!isMobileMenuOpen" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16" />
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
-          <!-- Auth buttons -->
-          <div class="hidden md:flex items-center space-x-4">
-            <template v-if="currentUser">
-              <RouterLink :to="'/user/me'" class="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
-                <img v-if="currentUser.avatar" :src="currentUser.avatar" class="h-8 w-8 rounded-full" alt="Avatar">
-                <span class="text-sm font-medium">{{ currentUser.name }}</span>
-              </RouterLink>
-              <a href="/auth/logout" class="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Выйти</a>
-            </template>
-            <a v-else href="/auth/oauth/vk" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-              Войти через VK
-            </a>
-          </div>
+          <!-- Mobile Menu open: "block", Menu closed: "hidden" -->
+          <div :class="[isMobileMenuOpen ? 'translate-x-0 opacity-100' : 'opacity-0 -translate-x-full']" class="absolute inset-x-0 z-20 w-full px-6 py-4 transition-all duration-300 ease-in-out bg-white dark:bg-gray-800 lg:mt-0 lg:p-0 lg:top-0 lg:relative lg:bg-transparent lg:w-auto lg:opacity-100 lg:translate-x-0 lg:flex lg:items-center">
+            <div class="flex flex-col -mx-6 lg:flex-row lg:items-center lg:mx-8">
+              <RouterLink to="/" class="px-3 py-2 mx-3 mt-2 text-gray-700 transition-colors duration-300 transform rounded-md lg:mt-0 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Вершины</RouterLink>
+              <RouterLink to="/map" class="px-3 py-2 mx-3 mt-2 text-gray-700 transition-colors duration-300 transform rounded-md lg:mt-0 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Карта</RouterLink>
+              <RouterLink to="/top" class="px-3 py-2 mx-3 mt-2 text-gray-700 transition-colors duration-300 transform rounded-md lg:mt-0 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Топ</RouterLink>
+              <RouterLink to="/about" class="px-3 py-2 mx-3 mt-2 text-gray-700 transition-colors duration-300 transform rounded-md lg:mt-0 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">О проекте</RouterLink>
+            </div>
 
-          <!-- Mobile menu button -->
-          <div class="md:hidden flex items-center">
-            <button @click="toggleMobileMenu" class="text-gray-700 hover:text-gray-900 focus:outline-none">
-              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path v-if="!isMobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div class="flex items-center mt-4 lg:mt-0">
+              <template v-if="currentUser">
+                <div class="flex items-center">
+                  <RouterLink :to="'/user/me'" class="flex items-center focus:outline-none" aria-label="toggle profile dropdown">
+                    <div class="w-8 h-8 overflow-hidden border-2 border-gray-400 rounded-full">
+                      <img :src="getImageUrl(currentUser.image_s)" class="object-cover w-full h-full" alt="Avatar">
+                    </div>
+                  </RouterLink>
+                  <a href="/auth/logout" class="px-3 py-2 mx-3 text-gray-700 transition-colors duration-300 transform rounded-md dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Выйти</a>
+                </div>
+              </template>
+              <a v-else href="/auth/oauth/vk" class="px-6 py-2 mx-3 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80">
+                Войти через VK
+              </a>
+            </div>
           </div>
         </div>
-
-        <!-- Mobile menu -->
-        <div v-if="isMobileMenuOpen" class="md:hidden">
-          <div class="px-2 pt-2 pb-3 space-y-1">
-            <RouterLink to="/" class="block text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-base font-medium">Вершины</RouterLink>
-            <RouterLink to="/map" class="block text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-base font-medium">Карта</RouterLink>
-            <RouterLink to="/top" class="block text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-base font-medium">Топ</RouterLink>
-            <RouterLink to="/about" class="block text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-base font-medium">О проекте</RouterLink>
-            <template v-if="currentUser">
-              <RouterLink :to="'/user/me'" class="block text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-base font-medium">
-                {{ currentUser.name }}
-              </RouterLink>
-              <a href="/auth/logout" class="block text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-base font-medium">Выйти</a>
-            </template>
-            <a v-else href="/auth/oauth/vk" class="block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-base font-medium">
-              Войти через VK
-            </a>
-          </div>
-        </div>
-      </nav>
-    </header>
+      </div>
+    </nav>
 
     <!-- Main content -->
-    <main class="flex-1 mt-16">
+    <main class="flex-1">
       <div v-if="$route.name !== 'map'" class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <RouterView />
       </div>
@@ -93,10 +82,18 @@ const toggleMobileMenu = () => {
     </main>
 
     <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200">
-      <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div class="text-center text-gray-500 text-sm">
-          © 2024 Тысячники Южного Урала
+    <footer class="bg-white dark:bg-gray-900 border-t border-gray-200">
+      <div class="container flex flex-col items-center justify-between p-6 mx-auto space-y-4 sm:space-y-0 sm:flex-row">
+        <RouterLink to="/">
+          <img src="/logo.svg" alt="Логотип" class="w-auto h-8">
+        </RouterLink>
+
+        <p class="text-sm text-gray-600 dark:text-gray-300">© 2024 Тысячники Южного Урала</p>
+
+        <div class="flex -mx-2">
+          <a href="https://vk.com/" class="mx-2 text-gray-600 transition-colors duration-300 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400" aria-label="VK">
+            <img src="/vklogo.svg" class="w-5 h-5" alt="VK">
+          </a>
         </div>
       </div>
     </footer>
