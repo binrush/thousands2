@@ -21,9 +21,9 @@ const toggleMobileMenu = () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-gray-50">
+  <div class="min-h-screen flex flex-col">
     <!-- Navigation -->
-    <nav class="relative bg-white shadow dark:bg-gray-800 fixed top-0 left-0 w-full z-50">
+    <nav class="relative bg-white dark:bg-gray-800 fixed top-0 left-0 w-full z-50">
       <div class="container px-6 py-4 mx-auto">
         <div class="lg:flex lg:items-center lg:justify-between">
           <div class="flex items-center justify-between">
@@ -75,7 +75,7 @@ const toggleMobileMenu = () => {
 
     <!-- Main content -->
     <main class="flex-1">
-      <div v-if="$route.name !== 'map'" class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div v-if="$route.name !== 'map'" class="container mx-auto px-6 py-4">
         <RouterView />
       </div>
       <RouterView v-else />

@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuth } from '../auth'
 import { getImageUrl } from '../utils/images'
+import { formatRussianDate } from '../utils/dates'
 
 const route = useRoute()
 const { authState } = useAuth()
@@ -51,25 +52,16 @@ watch(() => route.params, () => {
 
   <div v-else class="space-y-8">
     <!-- Summit Information -->
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-      <div class="relative h-64">
-        <img 
-          v-if="summit.images && summit.images.length > 0" 
-          :src="getImageUrl(summit.images[0].url)" 
-          :alt="summit.name || 'Вершина'"
-          class="w-full h-full object-cover"
-        >
-        <div v-else class="w-full h-full bg-gray-200 flex items-center justify-center">
-          <span class="text-gray-400">Нет изображения</span>
-        </div>
-      </div>
-
-      <div class="p-6">
-        <div class="flex justify-between items-start">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-900">{{ summit.name }}</h1>
-            <p v-if="summit.name_alt" class="text-gray-600 mt-1">{{ summit.name_alt }}</p>
-            <div class="mt-2 flex items-center space-x-4">
+    <div class="bg-white overflow-hidden">
+      <div class="lg:flex">
+        <div class="flex w-full lg:w-1/2">
+          <div class="max-w-xl">
+            <h1 class="text-3xl font-bold text-gray-900">
+              {{ summit.name || summit.height }}
+              <span v-if="summit.name_alt" class="text-gray-500 text-sm">({{ summit.name_alt }})</span>
+            </h1>
+            
+            <div class="mt-4 flex items-center space-x-4">
               <span class="text-gray-700">
                 <span class="font-semibold">Высота:</span> {{ summit.height }} м
               </span>
@@ -77,44 +69,54 @@ watch(() => route.params, () => {
                 <span class="font-semibold">Хребет:</span> {{ summit.ridge.name }}
               </span>
             </div>
-          </div>
-          
-          <div v-if="authState.user" class="flex space-x-2">
-            <RouterLink 
-              v-if="!summit.climbed"
-              :to="`/${route.params.ridge_id}/${route.params.summit_id}/climb`"
-              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              Зарегистрировать восхождение
-            </RouterLink>
-            <RouterLink 
-              v-else
-              :to="`/${route.params.ridge_id}/${route.params.summit_id}/climb`"
-              class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              Редактировать
-            </RouterLink>
+
+            <div v-if="summit.coordinates" class="mt-2">
+              <span class="text-gray-700">
+                <span class="font-semibold">Координаты:</span> 
+                {{ summit.coordinates[0] }}, {{ summit.coordinates[1] }}
+              </span>
+            </div>
+
+            <div v-if="summit.interpretation" class="mt-4 prose max-w-none" v-html="summit.interpretation"></div>
+
+            <div v-if="summit.description" class="mt-4 prose max-w-none" v-html="summit.description"></div>
+
+            <div v-if="authState.user" class="flex space-x-2 mt-6">
+              <RouterLink 
+                v-if="!summit.climbed"
+                :to="`/${route.params.ridge_id}/${route.params.summit_id}/climb`"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md text-sm font-medium tracking-wider"
+              >
+                Зарегистрировать восхождение
+              </RouterLink>
+              <RouterLink 
+                v-else
+                :to="`/${route.params.ridge_id}/${route.params.summit_id}/climb`"
+                class="bg-gray-600 hover:bg-gray-700 text-white px-5 py-2 rounded-md text-sm font-medium tracking-wider"
+              >
+                Редактировать
+              </RouterLink>
+            </div>
           </div>
         </div>
 
-        <div v-if="summit.interpretation" class="mt-4 prose max-w-none" v-html="summit.interpretation"></div>
-
-        <div v-if="summit.description" class="mt-4 prose max-w-none">
-          {{ summit.description }}
-        </div>
-
-        <div v-if="summit.coordinates" class="mt-4">
-          <span class="text-gray-700">
-            <span class="font-semibold">Координаты:</span> 
-            {{ summit.coordinates[0] }}, {{ summit.coordinates[1] }}
-          </span>
+        <div class="w-full h-64 lg:w-1/2 lg:h-auto">
+          <img 
+            v-if="summit.images && summit.images.length > 0 && summit.images[0].url"
+            :src="getImageUrl(summit.images[0].url)" 
+            :alt="summit.name || 'Вершина'"
+            class="w-full h-full object-cover"
+          />
+          <div v-else class="w-full h-full bg-gray-200 flex items-center justify-center">
+            <span class="text-gray-400 text-lg font-medium">Нет изображения</span>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Climbers List -->
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-      <div class="p-6">
+    <div class="bg-white overflow-hidden">
+      <div class="py-6">
         <h2 class="text-2xl font-bold text-gray-900 mb-4">Восходители</h2>
         
         <div v-if="summit.climbs.length === 0" class="text-center text-gray-500 py-4">
@@ -124,7 +126,14 @@ watch(() => route.params, () => {
         <div v-else class="space-y-4">
           <div v-for="climb in summit.climbs" :key="climb.user_id" class="flex items-center space-x-4 p-4 hover:bg-gray-50 rounded-lg">
             <img 
+              v-if="climb.user_image"
               :src="getImageUrl(climb.user_image)" 
+              :alt="climb.user_name"
+              class="h-12 w-12 rounded-full object-cover"
+            >
+            <img 
+              v-else
+              src="/climber_no_photo.svg" 
               :alt="climb.user_name"
               class="h-12 w-12 rounded-full"
             >
@@ -135,9 +144,9 @@ watch(() => route.params, () => {
               >
                 {{ climb.user_name }}
               </RouterLink>
-              <div class="text-sm text-gray-500">
-                <span v-if="climb.date.Year">{{ climb.date.Year }}-{{ String(climb.date.Month).padStart(2, '0') }}-{{ String(climb.date.Day).padStart(2, '0') }}</span>
-                <span v-if="climb.comment" class="ml-2">{{ climb.comment }}</span>
+              <div class="text-sm">
+                <span v-if="climb.date" class="text-sm text-gray-500">{{ formatRussianDate(climb.date) }}</span>
+                <p v-if="climb.comment">{{ climb.comment }}</p>
               </div>
             </div>
           </div>
