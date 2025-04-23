@@ -1,11 +1,12 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../auth'
 import { getImageUrl } from '../utils/images'
 import { formatRussianDate } from '../utils/dates'
 
 const route = useRoute()
+const router = useRouter()
 const { authState } = useAuth()
 
 const summit = ref(null)
@@ -16,38 +17,45 @@ const error = ref(null)
 const currentPage = ref(1)
 const totalPages = ref(1)
 const totalClimbs = ref(0)
+const climbersSection = ref(null)
 
 // Determine which pages to show in pagination
 const paginationItems = computed(() => {
   const items = []
-  if (totalPages.value <= 6) {
-    // If 6 or fewer pages, show all
+  // For consistent width, we'll always show 5 items
+  
+  if (totalPages.value <= 5) {
+    // If 5 or fewer pages, show all pages
     for (let i = 1; i <= totalPages.value; i++) {
       items.push({ type: 'page', value: i })
     }
+    
+    // Fill remaining slots with empty items for consistent width
+    for (let i = totalPages.value + 1; i <= 5; i++) {
+      items.push({ type: 'empty', value: '' })
+    }
   } else {
-    // Always show first 2 pages
-    items.push({ type: 'page', value: 1 })
-    items.push({ type: 'page', value: 2 })
-    
-    // Determine if we need ellipsis after page 2
-    if (currentPage.value > 4) {
+    // More than 5 pages, we need to be selective
+    if (currentPage.value <= 3) {
+      // Near the start: show 1, 2, 3, ..., totalPages
+      items.push({ type: 'page', value: 1 })
+      items.push({ type: 'page', value: 2 })
+      items.push({ type: 'page', value: 3 })
       items.push({ type: 'ellipsis', value: '...' })
-    }
-    
-    // Current page (if not in first 2 or last 2)
-    if (currentPage.value > 2 && currentPage.value < totalPages.value - 1) {
-      items.push({ type: 'page', value: currentPage.value })
-    }
-    
-    // Determine if we need ellipsis before last 2 pages
-    if (currentPage.value < totalPages.value - 3) {
+      items.push({ type: 'page', value: totalPages.value })
+    } else if (currentPage.value >= totalPages.value - 2) {
+      // Near the end: show 1, ..., totalPages-2, totalPages-1, totalPages
+      items.push({ type: 'page', value: 1 })
       items.push({ type: 'ellipsis', value: '...' })
-    }
-    
-    // Always show last 2 pages
-    if (totalPages.value > 1) {
+      items.push({ type: 'page', value: totalPages.value - 2 })
       items.push({ type: 'page', value: totalPages.value - 1 })
+      items.push({ type: 'page', value: totalPages.value })
+    } else {
+      // In the middle: show 1, ..., currentPage, ..., totalPages
+      items.push({ type: 'page', value: 1 })
+      items.push({ type: 'ellipsis', value: '...' })
+      items.push({ type: 'page', value: currentPage.value })
+      items.push({ type: 'ellipsis', value: '...' })
       items.push({ type: 'page', value: totalPages.value })
     }
   }
@@ -85,6 +93,11 @@ const fetchSummitDetails = async () => {
 const fetchClimbs = async (page = 1) => {
   try {
     isLoadingClimbs.value = true
+    
+    // Capture scroll position before fetching
+    const climbersEl = climbersSection.value
+    const scrollPos = climbersEl ? climbersEl.getBoundingClientRect().top + window.scrollY : 0
+    
     const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}/climbs?page=${page}`)
     if (!response.ok) throw new Error('Failed to fetch climbs')
     const data = await response.json()
@@ -96,6 +109,16 @@ const fetchClimbs = async (page = 1) => {
     // Calculate total pages
     const itemsPerPage = 20
     totalPages.value = Math.ceil(data.total_climbs / itemsPerPage)
+    
+    // Restore scroll position after data is loaded
+    if (climbersEl) {
+      setTimeout(() => {
+        window.scrollTo({
+          top: scrollPos,
+          behavior: 'auto'
+        })
+      }, 10)
+    }
   } catch (err) {
     console.error('Error fetching climbs:', err)
   } finally {
@@ -103,23 +126,69 @@ const fetchClimbs = async (page = 1) => {
   }
 }
 
-const handlePageChange = (page) => {
-  // Prevent default anchor behavior
-  event?.preventDefault()
+// Watch for route changes to reset pagination and fetch data
+watch(() => route.params, () => {
+  // Reset pagination when ridge or summit changes
+  const pageFromUrl = route.query.page ? parseInt(route.query.page) : 1
+  currentPage.value = pageFromUrl
   
+  // Fetch data
+  fetchSummitDetails()
+  fetchClimbs(pageFromUrl)
+}, { immediate: true })
+
+// Watch for page query parameter changes
+watch(() => route.query.page, (newPage) => {
+  const pageNum = newPage ? parseInt(newPage) : 1
+  if (pageNum !== currentPage.value && pageNum > 0) {
+    currentPage.value = pageNum
+    fetchClimbs(pageNum)
+  }
+}, { immediate: true })
+
+const handlePageChange = (page) => {
   if (currentPage.value === page) return
+  
+  // Capture current scroll position relative to the climbers section
+  const climbersEl = climbersSection.value
+  const currentScrollPos = climbersEl ? climbersEl.getBoundingClientRect().top + window.scrollY : 0
+  
+  // Update URL with the new page
+  const query = { ...route.query }
+  if (page === 1) {
+    // Remove page parameter for page 1 (cleaner URL)
+    delete query.page
+  } else {
+    query.page = page
+  }
+  
+  // Use router replace to update URL without creating new history entries
+  // and prevent scrolling behavior with replace + custom options
+  router.replace({ 
+    query,
+    params: route.params
+  }, 
+  // Second parameter (undefined) is for onComplete callback
+  undefined,
+  // Third parameter contains navigation options
+  { 
+    preserveState: true,
+    preventScroll: true 
+  })
   
   currentPage.value = page
   fetchClimbs(page)
+  
+  // After data is loaded, restore scroll position
+  setTimeout(() => {
+    if (climbersEl) {
+      window.scrollTo({
+        top: currentScrollPos,
+        behavior: 'auto'
+      })
+    }
+  }, 100)
 }
-
-// Watch for route changes to reset pagination and fetch data
-watch(() => route.params, () => {
-  currentPage.value = 1
-  // Fetch both summit details and initial climbs data
-  fetchSummitDetails()
-  fetchClimbs(1)
-}, { immediate: true })
 </script>
 
 <template>
@@ -196,7 +265,7 @@ watch(() => route.params, () => {
     </div>
 
     <!-- Climbers List -->
-    <div class="bg-white overflow-hidden">
+    <div class="bg-white overflow-hidden" ref="climbersSection">
       <div class="py-6">
         <h2 class="text-2xl font-bold text-gray-900 mb-4">
           Восходители 
@@ -254,14 +323,14 @@ watch(() => route.params, () => {
         </div>
 
         <!-- Pagination - position absolute to prevent jumping -->
-        <div v-if="totalPages > 1" class="mt-12 mb-4 relative">
+        <div v-if="totalPages > 1" class="mt-12 mb-4">
           <div class="flex justify-center">
-            <div class="flex">
+            <div class="flex items-center w-[320px] justify-center">
               <!-- Previous button -->
               <button 
                 @click="goToPreviousPage" 
                 :class="[
-                  'flex items-center justify-center px-4 py-2 mx-1 text-gray-700 transition-colors duration-300 transform bg-white rounded-md rtl:-scale-x-100',
+                  'flex items-center justify-center w-10 h-10 mx-1 text-gray-700 transition-colors duration-300 transform bg-white rounded-md rtl:-scale-x-100',
                   currentPage === 1 ? 'cursor-not-allowed text-gray-500' : 'hover:bg-blue-500 hover:text-white'
                 ]"
                 :disabled="currentPage === 1"
@@ -271,30 +340,39 @@ watch(() => route.params, () => {
                 </svg>
               </button>
 
-              <!-- Page numbers and ellipsis -->
-              <template v-for="(item, index) in paginationItems" :key="index">
-                <button
-                  v-if="item.type === 'page'"
-                  @click="handlePageChange(item.value)"
-                  class="hidden px-4 py-2 mx-1 transition-colors duration-300 transform bg-white rounded-md sm:inline hover:bg-blue-500 hover:text-white"
-                  :class="currentPage === item.value ? 'bg-blue-500 text-white' : 'text-gray-700'"
-                >
-                  {{ item.value }}
-                </button>
-                
-                <span 
-                  v-else 
-                  class="hidden px-4 py-2 mx-1 text-gray-700 bg-white sm:inline"
-                >
-                  {{ item.value }}
-                </span>
-              </template>
+              <!-- Center pagination area with fixed width -->
+              <div class="flex items-center justify-center w-[220px]">
+                <template v-for="(item, index) in paginationItems" :key="index">
+                  <button
+                    v-if="item.type === 'page'"
+                    @click="handlePageChange(item.value)"
+                    class="w-10 h-10 mx-1 transition-colors duration-300 transform bg-white rounded-md sm:inline hover:bg-blue-500 hover:text-white flex items-center justify-center"
+                    :class="currentPage === item.value ? 'bg-blue-500 text-white' : 'text-gray-700'"
+                  >
+                    {{ item.value }}
+                  </button>
+                  
+                  <span 
+                    v-else-if="item.type === 'ellipsis'" 
+                    class="w-10 h-10 mx-1 text-gray-700 flex items-center justify-center"
+                  >
+                    {{ item.value }}
+                  </span>
+
+                  <span
+                    v-else-if="item.type === 'empty'"
+                    class="w-10 h-10 mx-1 flex items-center justify-center invisible"
+                  >
+                    &nbsp;
+                  </span>
+                </template>
+              </div>
 
               <!-- Next button -->
               <button 
                 @click="goToNextPage" 
                 :class="[
-                  'flex items-center justify-center px-4 py-2 mx-1 text-gray-700 transition-colors duration-300 transform bg-white rounded-md rtl:-scale-x-100',
+                  'flex items-center justify-center w-10 h-10 mx-1 text-gray-700 transition-colors duration-300 transform bg-white rounded-md rtl:-scale-x-100',
                   currentPage === totalPages ? 'cursor-not-allowed text-gray-500' : 'hover:bg-blue-500 hover:text-white'
                 ]"
                 :disabled="currentPage === totalPages"

@@ -1,0 +1,61 @@
+{
+  "climbs": [
+    {
+      "user_id": 8,
+      "user_name": "Cameron Smith",
+      "user_image": "users/8_S.jpg",
+      "date": {
+        "Year": 2015,
+        "Month": 8,
+        "Day": 15
+      },
+      "comment": "Progressive holistic firmware"
+    },
+    {
+      "user_id": 7,
+      "user_name": "Todd Bowen",
+      "user_image": "users/7_S.jpg",
+      "date": {
+        "Year": 2002,
+        "Month": 11,
+        "Day": 5
+      },
+      "comment": "Decentralized didactic customer loyalty"
+    },
+    {
+      "user_id": 10,
+      "user_name": "Amanda Chan",
+      "user_image": "users/10_S.jpg",
+      "date": {
+        "Year": 2001,
+        "Month": 11,
+        "Day": 1
+      },
+      "comment": "Implemented attitude-oriented framework"
+    },
+    {
+      "user_id": 11,
+      "user_name": "Aaron Thompson",
+      "user_image": "users/11_S.jpg",
+      "date": {
+        "Year": 0,
+        "Month": 0,
+        "Day": 0
+      },
+      "comment": "Intuitive responsive website"
+    },
+    {
+      "user_id": 9,
+      "user_name": "Stephen Peters DVM",
+      "user_image": "users/9_S.jpg",
+      "date": {
+        "Year": 0,
+        "Month": 0,
+        "Day": 0
+      },
+      "comment": "Re-contextualized fresh-thinking complexity"
+    }
+  ],
+  "total_climbs": 6,
+  "page": 1
+} 
