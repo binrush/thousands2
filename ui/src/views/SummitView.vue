@@ -71,22 +71,9 @@ const goToNextPage = () => {
 const fetchSummitDetails = async () => {
   try {
     isLoading.value = true
-    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}?page=1`)
+    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}`)
     if (!response.ok) throw new Error('Failed to fetch summit')
-    const data = await response.json()
-    
-    // Set summit data but not climbs
-    summit.value = { ...data }
-    delete summit.value.climbs // Remove climbs from summit data
-    
-    // Set climbs separately
-    climbs.value = data.climbs
-    totalClimbs.value = data.total_climbs
-    
-    // Use total_climbs for pagination
-    const itemsPerPage = 10 // Items per page from API
-    totalPages.value = Math.ceil(data.total_climbs / itemsPerPage)
-    
+    summit.value = await response.json()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -98,12 +85,17 @@ const fetchSummitDetails = async () => {
 const fetchClimbs = async (page = 1) => {
   try {
     isLoadingClimbs.value = true
-    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}?page=${page}`)
+    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}/climbs?page=${page}`)
     if (!response.ok) throw new Error('Failed to fetch climbs')
     const data = await response.json()
     
-    // Update only the climbs data
+    // Update the climbs data
     climbs.value = data.climbs
+    totalClimbs.value = data.total_climbs
+    
+    // Calculate total pages
+    const itemsPerPage = 20
+    totalPages.value = Math.ceil(data.total_climbs / itemsPerPage)
   } catch (err) {
     console.error('Error fetching climbs:', err)
   } finally {
@@ -124,7 +116,9 @@ const handlePageChange = (page) => {
 // Watch for route changes to reset pagination and fetch data
 watch(() => route.params, () => {
   currentPage.value = 1
+  // Fetch both summit details and initial climbs data
   fetchSummitDetails()
+  fetchClimbs(1)
 }, { immediate: true })
 </script>
 

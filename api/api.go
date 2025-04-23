@@ -62,15 +62,7 @@ func (h *Api) handleSummitGet(w http.ResponseWriter, r *http.Request) {
 	ridgeId := chi.URLParam(r, "ridgeId")
 	summitId := chi.URLParam(r, "summitId")
 
-	page := 1
-	pageParam := r.URL.Query()["page"]
-	if len(pageParam) == 1 {
-		if p, err := strconv.Atoi(pageParam[0]); err == nil && p > 0 {
-			page = p
-		}
-	}
-
-	summit, err := h.Storage.FetchSummit(summitId, page, h.Config.ItemsPerPage)
+	summit, err := h.Storage.FetchSummit(summitId, 0, 0)
 	if err != nil {
 		log.Printf("Failed to fetch summit %s/%s: %v", ridgeId, summitId, err)
 		h.writeError(w, serverError)
@@ -127,6 +119,18 @@ func (h *Api) handleSummitPut(w http.ResponseWriter, r *http.Request) {
 func (h *Api) handleSummitClimbs(w http.ResponseWriter, r *http.Request) {
 	ridgeId := chi.URLParam(r, "ridgeId")
 	summitId := chi.URLParam(r, "summitId")
+
+	// Check if summit exists
+	summit, err := h.Storage.FetchSummit(summitId, 0, 0)
+	if err != nil {
+		log.Printf("Failed to verify summit %s/%s: %v", ridgeId, summitId, err)
+		h.writeError(w, serverError)
+		return
+	}
+	if summit == nil {
+		h.writeError(w, pathNotFoundError)
+		return
+	}
 
 	page := 1
 	pageParam := r.URL.Query()["page"]
