@@ -296,3 +296,72 @@ func TestSummitPutHandler(t *testing.T) {
 		}
 	}
 }
+
+func TestSummitPutHandlerErrors(t *testing.T) {
+	cases := []struct {
+		name           string
+		url            string
+		date           string
+		comment        string
+		userId         int64
+		expectedStatus int
+	}{
+		{
+			name:           "unauthenticated request",
+			url:            "/api/summit/malidak/kirel",
+			date:           "12.06.2023",
+			comment:        "Test climb",
+			userId:         0, // No user ID means unauthenticated
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "invalid date format",
+			url:            "/api/summit/malidak/kirel",
+			date:           "invalid-date",
+			comment:        "Test climb",
+			userId:         5,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "non-existing summit",
+			url:            "/api/summit/malidak/nonexistent",
+			date:           "12.06.2023",
+			comment:        "Test climb",
+			userId:         5,
+			expectedStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			conf := &RuntimeConfig{Datadir: "testdata/summits"}
+			app := GetMockApp(t, tt.userId, conf)
+
+			// Test data
+			formData := url.Values{}
+			formData.Set("date", tt.date)
+			formData.Set("comment", tt.comment)
+
+			// Make the PUT request
+			rr := httptest.NewRecorder()
+			req, err := http.NewRequest("PUT", tt.url, strings.NewReader(formData.Encode()))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Only add session cookie if we have a user ID
+			if tt.userId > 0 {
+				req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+			}
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+			app.router.ServeHTTP(rr, req)
+
+			// Check status code
+			if status := rr.Code; status != tt.expectedStatus {
+				t.Errorf("handler returned wrong status code: got %v want %v",
+					status, tt.expectedStatus)
+			}
+		})
+	}
+}
