@@ -465,8 +465,27 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	}
 	if userId != 0 {
 		climbQuery := `SELECT year, month, day, comment FROM climbs WHERE summit_id = ? AND user_id = ?`
-		err := s.db.Pool.QueryRow(climbQuery, summit.Id, userId).Scan(&summit.ClimbData.Date.Year, &summit.ClimbData.Date.Month, &summit.ClimbData.Date.Day, &summit.ClimbData.Comment)
-		if err != sql.ErrNoRows && err != nil {
+		var year, month, day sql.NullInt64
+		var comment sql.NullString
+		err := s.db.Pool.QueryRow(climbQuery, summit.Id, userId).Scan(&year, &month, &day, &comment)
+		switch err {
+		case sql.ErrNoRows:
+			summit.ClimbData = nil
+		case nil:
+			summit.ClimbData = &ClimbData{}
+			if year.Valid {
+				summit.ClimbData.Date.Year = year.Int64
+			}
+			if month.Valid {
+				summit.ClimbData.Date.Month = month.Int64
+			}
+			if day.Valid {
+				summit.ClimbData.Date.Day = day.Int64
+			}
+			if comment.Valid {
+				summit.ClimbData.Comment = comment.String
+			}
+		default:
 			return nil, err
 		}
 	}

@@ -62,7 +62,7 @@ func TestSummitsTableHandler(t *testing.T) {
 	db := MockDatabase(t)
 	conf := &RuntimeConfig{Datadir: "testdata/summits"}
 	sm := scs.New()
-	sm.Store = &MockSessionStore{}
+	sm.Store = NewMockSessionStore(5)
 
 	storage := NewStorage(db)
 	if err := storage.LoadSummits(conf.Datadir); err != nil {
@@ -164,18 +164,19 @@ func TestHandlersHappyPath(t *testing.T) {
 	cases := []struct {
 		url                string
 		expectedResultFile string
+		cookie             *http.Cookie
 	}{
-		{"/api/top?page=1", "top-1.json"},
-		{"/api/top?page=2", "top-2.json"},
-		{"/api/top?page=3", "top-3.json"},
-		{"/api/summit/malidak/kirel", "summit-1.json"},
-		{"/api/summit/malidak/kirel?page=2", "summit-1-page-2.json"},
-		{"/api/summit/malidak/kirel/climbs", "summit-climbs-1.json"},
-		{"/api/summit/malidak/kirel/climbs?page=2", "summit-climbs-1-page-2.json"},
-		{"/api/summit/stolby/1021/climbs", "summit-climbs-2.json"},
-		{"/api/summit/stolby/1021", "summit-2.json"},
-		{"/api/summit/malidak/malinovaja", "summit-3.json"},
-		{"/api/user/5", "user-1.json"},
+		{"/api/top?page=1", "top-1.json", nil},
+		{"/api/top?page=2", "top-2.json", nil},
+		{"/api/top?page=3", "top-3.json", nil},
+		{"/api/summit/malidak/kirel", "summit-1.json", &http.Cookie{Name: "session", Value: "mock_session_token"}},
+		{"/api/summit/malidak/kirel?page=2", "summit-1-page-2.json", nil},
+		{"/api/summit/malidak/kirel/climbs", "summit-climbs-1.json", nil},
+		{"/api/summit/malidak/kirel/climbs?page=2", "summit-climbs-1-page-2.json", nil},
+		{"/api/summit/stolby/1021/climbs", "summit-climbs-2.json", nil},
+		{"/api/summit/stolby/1021", "summit-2.json", nil},
+		{"/api/summit/malidak/malinovaja", "summit-3.json", nil},
+		{"/api/user/5", "user-1.json", nil},
 	}
 	db := MockDatabase(t)
 	defer db.Pool.Close()
@@ -190,7 +191,7 @@ func TestHandlersHappyPath(t *testing.T) {
 	}
 
 	sm := scs.New()
-	sm.Store = &MockSessionStore{}
+	sm.Store = NewMockSessionStore(7)
 
 	app := NewAppServer(conf, storage, sm, "")
 
@@ -199,7 +200,9 @@ func TestHandlersHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
+		if tt.cookie != nil {
+			req.AddCookie(tt.cookie)
+		}
 		rr := httptest.NewRecorder()
 
 		app.router.ServeHTTP(rr, req)

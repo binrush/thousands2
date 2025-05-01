@@ -24,5 +24,12 @@
       "url": "summits/kirel_vershina_1.jpg"
     }
   ],
-  "climb_data": null
+  "climb_data": {
+    "date": {
+      "Year": 2002,
+      "Month": 11,
+      "Day": 5
+    },
+    "comment": "Decentralized didactic customer loyalty"
+  }
 }

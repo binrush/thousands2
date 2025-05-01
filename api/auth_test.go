@@ -25,6 +25,11 @@ const (
 )
 
 type MockSessionStore struct {
+	userId int64
+}
+
+func NewMockSessionStore(userId int64) *MockSessionStore {
+	return &MockSessionStore{userId: userId}
 }
 
 func (mss *MockSessionStore) Delete(token string) error {
@@ -36,7 +41,7 @@ func (mss *MockSessionStore) Find(token string) (b []byte, found bool, err error
 		return nil, false, nil
 	}
 	mockData := make(map[string]interface{})
-	mockData[UserIdKey] = MockUserId
+	mockData[UserIdKey] = mss.userId
 	codec := scs.GobCodec{}
 	res, err := codec.Encode(time.Now().Add(24*time.Hour), mockData)
 	if err != nil {
