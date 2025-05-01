@@ -636,3 +636,15 @@ func (s *Storage) UpdateClimb(summitId string, userId int64, date InexactDate, c
 	}
 	return nil
 }
+
+func (s *Storage) DeleteClimb(summitId string, userId int64) error {
+	s.db.WriteLock.Lock()
+	defer s.db.WriteLock.Unlock()
+
+	query := `DELETE FROM climbs WHERE summit_id = ? AND user_id = ?`
+	_, err := s.db.Pool.Exec(query, summitId, userId)
+	if err != nil {
+		return err
+	}
+	return nil
+}

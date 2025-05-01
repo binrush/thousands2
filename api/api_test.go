@@ -37,25 +37,19 @@ func AreEqualJSON(s1, s2 string) (bool, error) {
 
 func MockDatabase(t *testing.T) *Database {
 	db, err := NewDatabase(":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	err = db.Migrate()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	file, err := os.Open("testdata/mock-db.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		_, err := db.Pool.Exec(scanner.Text())
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 	return db
 }
@@ -65,9 +59,8 @@ func GetMockApp(t *testing.T, userId int64, config *RuntimeConfig) *App {
 	sm := scs.New()
 	sm.Store = NewMockSessionStore(userId)
 	storage := NewStorage(db)
-	if err := storage.LoadSummits(config.Datadir); err != nil {
-		t.Fatal(err)
-	}
+	err := storage.LoadSummits(config.Datadir)
+	require.NoError(t, err)
 	return NewAppServer(config, storage, sm, "")
 }
 
@@ -75,105 +68,106 @@ func TestSummitsTableHandler(t *testing.T) {
 	app := GetMockApp(t, 5, &RuntimeConfig{Datadir: "testdata/summits"})
 
 	cases := []struct {
+		name                    string
 		cookie                  *http.Cookie
 		expectedResonseFilename string
 	}{
-		{nil, "summits-table-expected.json"},
 		{
-			&http.Cookie{Name: "session", Value: "mock_session_token"},
-			"summits-table-expected-authenticated.json",
+			name:                    "unauthenticated request",
+			cookie:                  nil,
+			expectedResonseFilename: "summits-table-expected.json",
+		},
+		{
+			name:                    "authenticated request",
+			cookie:                  &http.Cookie{Name: "session", Value: "mock_session_token"},
+			expectedResonseFilename: "summits-table-expected-authenticated.json",
 		},
 	}
 	for _, tt := range cases {
-		rr := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/api/summits", nil)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		if tt.cookie != nil {
-			req.AddCookie(tt.cookie)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			req, err := http.NewRequest("GET", "/api/summits", nil)
+			require.NoError(t, err)
 
-		app.router.ServeHTTP(rr, req)
+			if tt.cookie != nil {
+				req.AddCookie(tt.cookie)
+			}
 
-		if status := rr.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
-			return
-		}
+			app.router.ServeHTTP(rr, req)
 
-		expected, err := os.ReadFile("testdata/" + tt.expectedResonseFilename)
-		if err != nil {
-			t.Errorf("Failed to read expected json data: %v", err)
-			return
-		}
-		expectedStr := string(expected)
-		actualStr := rr.Body.String()
-		require.JSONEq(t, expectedStr, actualStr, "Response body mismatch")
+			assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+
+			expected, err := os.ReadFile("testdata/" + tt.expectedResonseFilename)
+			require.NoError(t, err, "Failed to read expected json data")
+
+			assert.JSONEq(t, string(expected), rr.Body.String(), "Response body mismatch")
+		})
 	}
 }
 
 func TestHandlersClientErrors(t *testing.T) {
-	var cases = []struct {
+	cases := []struct {
+		name         string
 		url          string
 		expectedCode int
 	}{
-		{"/api/top?page=0", http.StatusBadRequest},
-		{"/api/top?page=-1", http.StatusBadRequest},
-		{"/api/top?page=1&page=2", http.StatusBadRequest},
-		{"/api/summit", http.StatusNotFound},
-		{"/api/summit/kyrel", http.StatusNotFound},
-		{"/api/summit/malidak/kyrel/1", http.StatusNotFound},
-		{"/auth/oauth/invalidprovider", http.StatusNotFound},
-		{"/auth/oauth/vk/123", http.StatusNotFound},
-		{"/auth/oauth", http.StatusNotFound},
-		{"/auth/authorized/invalidprovider", http.StatusNotFound},
-		{"/auth/authorized/vk/123", http.StatusNotFound},
-		{"/auth/authorized", http.StatusNotFound},
-		{"/auth/randomendpoint", http.StatusNotFound},
-		{"/api/user/me", http.StatusUnauthorized},
-		{"/api/user/", http.StatusNotFound},
-		{"/api/user/abcd", http.StatusNotFound},
-		{"/api/user/1/check", http.StatusNotFound},
-		{"/api/user/123", http.StatusNotFound},
+		{"invalid page 0", "/api/top?page=0", http.StatusBadRequest},
+		{"negative page", "/api/top?page=-1", http.StatusBadRequest},
+		{"multiple pages", "/api/top?page=1&page=2", http.StatusBadRequest},
+		{"missing summit path", "/api/summit", http.StatusNotFound},
+		{"incomplete summit path", "/api/summit/kyrel", http.StatusNotFound},
+		{"invalid summit path", "/api/summit/malidak/kyrel/1", http.StatusNotFound},
+		{"invalid oauth provider", "/auth/oauth/invalidprovider", http.StatusNotFound},
+		{"invalid oauth path", "/auth/oauth/vk/123", http.StatusNotFound},
+		{"incomplete oauth path", "/auth/oauth", http.StatusNotFound},
+		{"invalid authorized provider", "/auth/authorized/invalidprovider", http.StatusNotFound},
+		{"invalid authorized path", "/auth/authorized/vk/123", http.StatusNotFound},
+		{"incomplete authorized path", "/auth/authorized", http.StatusNotFound},
+		{"random auth endpoint", "/auth/randomendpoint", http.StatusNotFound},
+		{"unauthorized me", "/api/user/me", http.StatusUnauthorized},
+		{"invalid user path", "/api/user/", http.StatusNotFound},
+		{"non-numeric user id", "/api/user/abcd", http.StatusNotFound},
+		{"invalid user check", "/api/user/1/check", http.StatusNotFound},
+		{"non-existent user", "/api/user/123", http.StatusNotFound},
 	}
 	app := GetMockApp(t, 5, &RuntimeConfig{Datadir: "testdata/summits"})
 
 	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest("GET", tt.url, nil)
+			require.NoError(t, err)
 
-		req, err := http.NewRequest("GET", tt.url, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		rr := httptest.NewRecorder()
+			rr := httptest.NewRecorder()
+			app.router.ServeHTTP(rr, req)
 
-		app.router.ServeHTTP(rr, req)
-
-		if status := rr.Code; status != tt.expectedCode {
-			t.Errorf("handler returned wrong status code for %s: got %v want %v",
-				tt.url, status, tt.expectedCode)
-		}
+			assert.Equal(t, tt.expectedCode, rr.Code, "handler returned wrong status code for %s", tt.url)
+		})
 	}
 }
 
 func TestHandlersHappyPath(t *testing.T) {
 	cases := []struct {
+		name               string
 		url                string
 		expectedResultFile string
 		cookie             *http.Cookie
 	}{
-		{"/api/top?page=1", "top-1.json", nil},
-		{"/api/top?page=2", "top-2.json", nil},
-		{"/api/top?page=3", "top-3.json", nil},
-		{"/api/summit/malidak/kirel", "summit-1.json", &http.Cookie{Name: "session", Value: "mock_session_token"}},
-		{"/api/summit/malidak/kirel?page=2", "summit-1-page-2.json", nil},
-		{"/api/summit/malidak/kirel/climbs", "summit-climbs-1.json", nil},
-		{"/api/summit/malidak/kirel/climbs?page=2", "summit-climbs-1-page-2.json", nil},
-		{"/api/summit/stolby/1021/climbs", "summit-climbs-2.json", nil},
-		{"/api/summit/stolby/1021", "summit-2.json", nil},
-		{"/api/summit/malidak/malinovaja", "summit-3.json", nil},
-		{"/api/user/5", "user-1.json", nil},
+		{"top page 1", "/api/top?page=1", "top-1.json", nil},
+		{"top page 2", "/api/top?page=2", "top-2.json", nil},
+		{"top page 3", "/api/top?page=3", "top-3.json", nil},
+		{
+			"authenticated summit",
+			"/api/summit/malidak/kirel",
+			"summit-1.json",
+			&http.Cookie{Name: "session", Value: "mock_session_token"},
+		},
+		{"summit page 2", "/api/summit/malidak/kirel?page=2", "summit-1-page-2.json", nil},
+		{"summit climbs", "/api/summit/malidak/kirel/climbs", "summit-climbs-1.json", nil},
+		{"summit climbs page 2", "/api/summit/malidak/kirel/climbs?page=2", "summit-climbs-1-page-2.json", nil},
+		{"stolby climbs", "/api/summit/stolby/1021/climbs", "summit-climbs-2.json", nil},
+		{"stolby summit", "/api/summit/stolby/1021", "summit-2.json", nil},
+		{"malinovaja summit", "/api/summit/malidak/malinovaja", "summit-3.json", nil},
+		{"user profile", "/api/user/5", "user-1.json", nil},
 	}
 	conf := &RuntimeConfig{
 		Datadir:      "testdata/summits",
@@ -182,118 +176,91 @@ func TestHandlersHappyPath(t *testing.T) {
 	app := GetMockApp(t, 7, conf)
 
 	for _, tt := range cases {
-		req, err := http.NewRequest("GET", tt.url, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if tt.cookie != nil {
-			req.AddCookie(tt.cookie)
-		}
-		rr := httptest.NewRecorder()
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest("GET", tt.url, nil)
+			require.NoError(t, err)
 
-		app.router.ServeHTTP(rr, req)
-		res := rr.Result()
-		if status := res.StatusCode; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code for url %s: got %v want %v.",
-				tt.url, status, http.StatusOK)
-			continue
-		}
-		contentType := res.Header.Get("Content-Type")
-		if contentType != "application/json" {
-			t.Errorf("Wrong Content-Type header returned for url %s: got %v, expected application/json",
-				tt.url, contentType)
-			continue
-		}
-		expected, err := os.ReadFile(
-			filepath.Join("testdata/responses", tt.expectedResultFile))
-		if err != nil {
-			t.Errorf("Failed to read expected json data from %s: %v",
-				tt.expectedResultFile, err)
-			continue
-		}
-		expectedBody := string(expected)
+			if tt.cookie != nil {
+				req.AddCookie(tt.cookie)
+			}
+			rr := httptest.NewRecorder()
+			app.router.ServeHTTP(rr, req)
 
-		assert.JSONEq(t, expectedBody, rr.Body.String(), "Response body mismatch for %s", tt.url)
+			assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+			assert.Equal(t, "application/json", rr.Header().Get("Content-Type"), "Wrong Content-Type header")
+
+			expected, err := os.ReadFile(filepath.Join("testdata/responses", tt.expectedResultFile))
+			require.NoError(t, err, "Failed to read expected json data")
+
+			assert.JSONEq(t, string(expected), rr.Body.String(), "Response body mismatch")
+		})
 	}
 }
 
 func TestSummitPutHandler(t *testing.T) {
 	cases := []struct {
+		name         string
 		url          string
 		date         string
 		comment      string
 		expectedDate InexactDate
 	}{
-		// non-existing climb
-		{"/api/summit/malidak/malinovaja", "12.2002", "This is new climb", InexactDate{2002, 12, 0}},
-		// existing climb
-		{"/api/summit/malidak/kirel", "12.06.2023", "This is a new comment", InexactDate{2023, 6, 12}},
+		{
+			name:         "new climb",
+			url:          "/api/summit/malidak/malinovaja",
+			date:         "12.2002",
+			comment:      "This is new climb",
+			expectedDate: InexactDate{2002, 12, 0},
+		},
+		{
+			name:         "update existing climb",
+			url:          "/api/summit/malidak/kirel",
+			date:         "12.06.2023",
+			comment:      "This is a new comment",
+			expectedDate: InexactDate{2023, 6, 12},
+		},
 	}
 	userId := int64(7)
+
 	for _, tt := range cases {
-		conf := &RuntimeConfig{Datadir: "testdata/summits"}
-		app := GetMockApp(t, userId, conf)
+		t.Run(tt.name, func(t *testing.T) {
+			conf := &RuntimeConfig{Datadir: "testdata/summits"}
+			app := GetMockApp(t, userId, conf)
 
-		// Test data
-		formData := url.Values{}
-		formData.Set("date", tt.date)
-		formData.Set("comment", tt.comment)
+			// Test data
+			formData := url.Values{}
+			formData.Set("date", tt.date)
+			formData.Set("comment", tt.comment)
 
-		// First, make the PUT request to record the climb
-		rr := httptest.NewRecorder()
-		req, err := http.NewRequest("PUT", tt.url, strings.NewReader(formData.Encode()))
-		if err != nil {
-			t.Error(err)
-			continue
-		}
-		req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			// Make the PUT request
+			rr := httptest.NewRecorder()
+			req, err := http.NewRequest("PUT", tt.url, strings.NewReader(formData.Encode()))
+			require.NoError(t, err)
 
-		app.router.ServeHTTP(rr, req)
+			req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-		if status := rr.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
-			continue
-		}
+			app.router.ServeHTTP(rr, req)
+			assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
 
-		// Now, verify the climb was recorded by checking the climbs endpoint
-		rr = httptest.NewRecorder()
-		req, err = http.NewRequest("GET", tt.url, nil)
-		if err != nil {
-			t.Error(err)
-			continue
-		}
-		req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+			// Verify the climb was recorded
+			rr = httptest.NewRecorder()
+			req, err = http.NewRequest("GET", tt.url, nil)
+			require.NoError(t, err)
 
-		app.router.ServeHTTP(rr, req)
+			req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+			app.router.ServeHTTP(rr, req)
 
-		if status := rr.Code; status != http.StatusOK {
-			t.Errorf("climbs endpoint returned wrong status code: got %v want %v",
-				status, http.StatusOK)
-			continue
-		}
+			assert.Equal(t, http.StatusOK, rr.Code, "climbs endpoint returned wrong status code")
 
-		// Parse the response
-		var response Summit
-		if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
-			t.Errorf("Failed to decode response: %v", err)
-			continue
-		}
+			var response Summit
+			err = json.NewDecoder(rr.Body).Decode(&response)
+			require.NoError(t, err, "Failed to decode response")
 
-		// Find our newly added climb
-		if response.ClimbData == nil {
-			t.Error("New climb not found in the climbs list")
-			continue
-		}
-
-		// Verify the climb details
-		if response.ClimbData.Comment != tt.comment {
-			t.Errorf("Expected comment '%s', got '%s'", tt.comment, response.ClimbData.Comment)
-		}
-		if response.ClimbData.Date != tt.expectedDate {
-			t.Errorf("Expected date %v, got %v", tt.expectedDate, response.ClimbData.Date)
-		}
+			require.NotNil(t, response.ClimbData, "New climb not found in the climbs list")
+			assert.Equal(t, tt.comment, response.ClimbData.Comment, "Wrong comment")
+			assert.Equal(t, tt.expectedDate, response.ClimbData.Date, "Wrong date")
+		})
 	}
 }
 
@@ -311,7 +278,7 @@ func TestSummitPutHandlerErrors(t *testing.T) {
 			url:            "/api/summit/malidak/kirel",
 			date:           "12.06.2023",
 			comment:        "Test climb",
-			userId:         0, // No user ID means unauthenticated
+			userId:         0,
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
@@ -337,31 +304,61 @@ func TestSummitPutHandlerErrors(t *testing.T) {
 			conf := &RuntimeConfig{Datadir: "testdata/summits"}
 			app := GetMockApp(t, tt.userId, conf)
 
-			// Test data
 			formData := url.Values{}
 			formData.Set("date", tt.date)
 			formData.Set("comment", tt.comment)
 
-			// Make the PUT request
 			rr := httptest.NewRecorder()
 			req, err := http.NewRequest("PUT", tt.url, strings.NewReader(formData.Encode()))
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
-			// Only add session cookie if we have a user ID
 			if tt.userId > 0 {
 				req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
 			}
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 			app.router.ServeHTTP(rr, req)
-
-			// Check status code
-			if status := rr.Code; status != tt.expectedStatus {
-				t.Errorf("handler returned wrong status code: got %v want %v",
-					status, tt.expectedStatus)
-			}
+			assert.Equal(t, tt.expectedStatus, rr.Code, "handler returned wrong status code")
 		})
 	}
+}
+
+func TestSummitDeleteHandler(t *testing.T) {
+	conf := &RuntimeConfig{Datadir: "testdata/summits"}
+	app := GetMockApp(t, 5, conf)
+
+	// Make the DELETE request
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest("DELETE", "/api/summit/kurkak/kurkak", nil)
+	require.NoError(t, err)
+
+	req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+	app.router.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+
+	// Verify the climb was deleted
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest("GET", "/api/summit/kurkak/kurkak", nil)
+	require.NoError(t, err)
+
+	req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+	app.router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code, "climbs endpoint returned wrong status code")
+
+	var response Summit
+	err = json.NewDecoder(rr.Body).Decode(&response)
+	require.NoError(t, err, "Failed to decode response")
+	assert.Nil(t, response.ClimbData, "Climb data should be nil after deletion")
+}
+
+func TestSummitDeleteHandlerUnauthenticated(t *testing.T) {
+	app := GetMockApp(t, 0, &RuntimeConfig{Datadir: "testdata/summits"})
+
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest("DELETE", "/api/summit/kurkak/kurkak", nil)
+	require.NoError(t, err)
+
+	app.router.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusUnauthorized, rr.Code, "handler returned wrong status code")
 }

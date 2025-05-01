@@ -49,6 +49,7 @@ func NewApi(config *RuntimeConfig, storage *Storage, sm *scs.SessionManager) *Ap
 	// Set up routes
 	api.router.Get("/summit/{ridgeId}/{summitId}", api.handleSummitGet)
 	api.router.Put("/summit/{ridgeId}/{summitId}", api.handleSummitPut)
+	api.router.Delete("/summit/{ridgeId}/{summitId}", api.handleSummitDelete)
 	api.router.Get("/summit/{ridgeId}/{summitId}/climbs", api.handleSummitClimbs)
 	api.router.Get("/summits", api.handleSummits)
 	api.router.Get("/top", api.handleTop)
@@ -111,6 +112,25 @@ func (h *Api) handleSummitPut(w http.ResponseWriter, r *http.Request) {
 	err = h.Storage.UpdateClimb(summit.Id, userId, ied, comment)
 	if err != nil {
 		log.Printf("Failed to update climb: %v", err)
+		h.writeError(w, serverError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Api) handleSummitDelete(w http.ResponseWriter, r *http.Request) {
+	userId := h.SM.GetInt64(r.Context(), UserIdKey)
+	if userId == 0 {
+		h.writeError(w, authRequired)
+		return
+	}
+
+	summitId := chi.URLParam(r, "summitId")
+
+	err := h.Storage.DeleteClimb(summitId, userId)
+	if err != nil {
+		log.Printf("Failed to delete climb: %v", err)
 		h.writeError(w, serverError)
 		return
 	}

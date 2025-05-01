@@ -6,45 +6,26 @@ import { RouterLink } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 const isSubmitting = ref(false)
+const isDeleting = ref(false)
 const summit = ref(null)
 const isLoading = ref(true)
 
-const climbData = ref({
-  date: new Date().toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  }).replace(/\./g, '.'),
-  description: '',
-  photos: []
+const formData = ref({
+  date: '',
+  comment: ''
 })
 
-const MAX_DESCRIPTION_LENGTH = 1000
-
-// Function to validate and format date
-function formatDate(dateStr) {
-  // Remove any non-digit characters except dots
-  const cleaned = dateStr.replace(/[^\d.]/g, '')
+// Function to format date object to string
+function formatDateToString(date) {
+  if (!date) return ''
+  if (!date.Year) return ''
   
-  // Split by dots and filter out empty strings
-  const parts = cleaned.split('.').filter(Boolean)
+  const parts = []
+  if (date.Day) parts.push(date.Day.toString().padStart(2, '0'))
+  if (date.Month) parts.push(date.Month.toString().padStart(2, '0'))
+  parts.push(date.Year.toString())
   
-  // If we have only year (e.g. "2012")
-  if (parts.length === 1 && parts[0].length === 4) {
-    return parts[0]
-  }
-  
-  // If we have month and year (e.g. "2.2012")
-  if (parts.length === 2 && parts[0].length <= 2 && parts[1].length === 4) {
-    return `${parts[0]}.${parts[1]}`
-  }
-  
-  // If we have full date (e.g. "12.02.2012")
-  if (parts.length === 3 && parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
-    return `${parts[0].padStart(2, '0')}.${parts[1].padStart(2, '0')}.${parts[2]}`
-  }
-  
-  return dateStr
+  return parts.join('.')
 }
 
 async function fetchSummit() {
@@ -52,6 +33,12 @@ async function fetchSummit() {
     const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}`)
     if (!response.ok) throw new Error('Failed to fetch summit')
     summit.value = await response.json()
+    
+    // Initialize form data
+    if (summit.value.climb_data) {
+      formData.value.date = formatDateToString(summit.value.climb_data.date)
+      formData.value.comment = summit.value.climb_data.comment || ''
+    }
   } catch (error) {
     console.error('Error fetching summit:', error)
   } finally {
@@ -64,13 +51,13 @@ async function submitClimb() {
   
   isSubmitting.value = true
   try {
-    const formData = new FormData()
-    formData.append('date', climbData.value.date)
-    formData.append('comment', climbData.value.comment)
+    const formDataToSubmit = new FormData()
+    formDataToSubmit.append('date', formData.value.date)
+    formDataToSubmit.append('comment', formData.value.comment)
 
     const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}`, {
       method: 'PUT',
-      body: formData
+      body: formDataToSubmit
     })
 
     if (response.ok) {
@@ -83,6 +70,32 @@ async function submitClimb() {
     alert('Произошла ошибка при сохранении восхождения')
   } finally {
     isSubmitting.value = false
+  }
+}
+
+async function deleteClimb() {
+  if (!confirm('Вы уверены, что хотите удалить запись о восхождении?')) {
+    return
+  }
+
+  if (isDeleting.value) return
+  
+  isDeleting.value = true
+  try {
+    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}`, {
+      method: 'DELETE'
+    })
+
+    if (response.ok) {
+      router.push({ name: 'summit', params: route.params })
+    } else {
+      throw new Error('Failed to delete climb')
+    }
+  } catch (error) {
+    console.error('Error deleting climb:', error)
+    alert('Произошла ошибка при удалении восхождения')
+  } finally {
+    isDeleting.value = false
   }
 }
 
@@ -112,76 +125,75 @@ onMounted(() => {
           <span class="text-gray-500">|</span>
           <span class="text-gray-600">хребет {{ summit.ridge.name }}</span>
         </div>
-      </div>
       
-      <form @submit.prevent="submitClimb" class="space-y-6">
-        <div class="bg-white">
-          <div class="space-y-6">
-            <div class="form-group">
-              <label for="date" class="block text-sm text-gray-500 dark:text-gray-300">Дата восхождения</label>
-              <input
-                id="date"
-                type="text"
-                v-model="climbData.date"
-                @input="climbData.date = formatDate($event.target.value)"
-                class="block  mt-2 w-full placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-blue-300"
-                placeholder="дд.мм.гггг"
-              >
-              <p class="mt-2 text-xs text-gray-500">
-                Необязательное поле. Если точная дата неизвестна, можно ввести только месяц (например 2.2012) или только год (например 2012)
-              </p>
-            </div>
+        <form @submit.prevent="submitClimb" class="space-y-6 mt-6">
+          <fieldset :disabled="isLoading" class="space-y-6">
+            <div class="bg-white">
+              <div class="space-y-6">
+                <div class="form-group">
+                  <label for="date" class="block text-sm text-gray-500 dark:text-gray-300">Дата восхождения</label>
+                  <input
+                    id="date"
+                    type="text"
+                    v-model="formData.date"
+                    class="block mt-2 w-full placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-blue-300 disabled:bg-gray-100 disabled:text-gray-500"
+                    placeholder="дд.мм.гггг"
+                  >
+                  <p class="mt-2 text-xs text-gray-500">
+                    Необязательное поле. Если точная дата неизвестна, можно ввести только месяц (например 2.2012) или только год (например 2012)
+                  </p>
+                </div>
 
-            <div class="form-group">
-              <label for="comment" class="block text-sm text-gray-500 dark:text-gray-300">Описание</label>
-              <textarea
-                id="comment"
-                v-model="climbData.comment"
-                rows="6"
-                maxlength="1000"
-                class="block  mt-2 w-full  placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border border-gray-200 bg-white px-4 h-32 py-2.5 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-blue-300"
-                placeholder="Расскажите о вашем восхождении..."
-              ></textarea>
-              <div class="flex justify-between mt-2">
-                <p class="text-xs text-gray-500">
-                  Необязательное поле.
-                </p>
-                <p class="text-sm text-gray-500">
-                  {{ climbData.description.length }}/1000
-                </p>
+                <div class="form-group">
+                  <label for="comment" class="block text-sm text-gray-500 dark:text-gray-300">Описание</label>
+                  <textarea
+                    id="comment"
+                    v-model="formData.comment"
+                    rows="6"
+                    maxlength="1000"
+                    class="block mt-2 w-full placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border border-gray-200 bg-white px-4 h-32 py-2.5 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-blue-300 disabled:bg-gray-100 disabled:text-gray-500"
+                    placeholder="Расскажите о вашем восхождении..."
+                  ></textarea>
+                  <div class="flex justify-between mt-2">
+                    <p class="text-xs text-gray-500">
+                      Необязательное поле.
+                    </p>
+                    <p class="text-sm text-gray-500">
+                      {{ formData.comment.length }}/1000
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div class="flex justify-end">
-          <button
-            type="submit"
-            class="px-6 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80"
-            :disabled="isSubmitting"
-          >
-            {{ isSubmitting ? 'Сохранение...' : 'Сохранить' }}
-          </button>
-        </div>
-      </form>
+            <div class="flex justify-end space-x-3">
+              <button
+                v-if="summit.climb_data"
+                type="button"
+                @click="deleteClimb"
+                class="px-6 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-red-600 rounded-lg hover:bg-red-500 focus:outline-none focus:ring focus:ring-red-300 focus:ring-opacity-80 disabled:bg-red-400"
+                :disabled="isDeleting || isLoading"
+              >
+                {{ isDeleting ? 'Удаление...' : 'Удалить' }}
+              </button>
+              <button
+                type="submit"
+                class="px-6 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80 disabled:bg-blue-400"
+                :disabled="isSubmitting || isLoading"
+              >
+                {{ isSubmitting ? 'Сохранение...' : 'Сохранить' }}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      </div>
+      
+      <div v-else class="text-red-600 text-center py-4">
+        Не удалось загрузить информацию о вершине
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.climb-form-view {
-  padding: 20px;
-}
-
-.form-group {
-  @apply space-y-1;
-}
-
-input, textarea {
-  @apply transition-colors duration-200;
-}
-
-input:focus, textarea:focus {
-  @apply ring-2 ring-blue-200;
-}
 </style>
