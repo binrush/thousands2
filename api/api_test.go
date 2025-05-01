@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/alexedwards/scs/v2"
@@ -58,20 +60,19 @@ func MockDatabase(t *testing.T) *Database {
 	return db
 }
 
-func TestSummitsTableHandler(t *testing.T) {
+func GetMockApp(t *testing.T, userId int64, config *RuntimeConfig) *App {
 	db := MockDatabase(t)
-	conf := &RuntimeConfig{Datadir: "testdata/summits"}
 	sm := scs.New()
-	sm.Store = NewMockSessionStore(5)
-
+	sm.Store = NewMockSessionStore(userId)
 	storage := NewStorage(db)
-	if err := storage.LoadSummits(conf.Datadir); err != nil {
+	if err := storage.LoadSummits(config.Datadir); err != nil {
 		t.Fatal(err)
-		return
 	}
+	return NewAppServer(config, storage, sm, "")
+}
 
-	api := NewApi(conf, storage, sm)
-	handler := sm.LoadAndSave(api.router)
+func TestSummitsTableHandler(t *testing.T) {
+	app := GetMockApp(t, 5, &RuntimeConfig{Datadir: "testdata/summits"})
 
 	cases := []struct {
 		cookie                  *http.Cookie
@@ -85,7 +86,7 @@ func TestSummitsTableHandler(t *testing.T) {
 	}
 	for _, tt := range cases {
 		rr := httptest.NewRecorder()
-		req, err := http.NewRequest("GET", "/summits", nil)
+		req, err := http.NewRequest("GET", "/api/summits", nil)
 		if err != nil {
 			t.Error(err)
 			return
@@ -94,7 +95,7 @@ func TestSummitsTableHandler(t *testing.T) {
 			req.AddCookie(tt.cookie)
 		}
 
-		handler.ServeHTTP(rr, req)
+		app.router.ServeHTTP(rr, req)
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Errorf("handler returned wrong status code: got %v want %v",
@@ -137,11 +138,7 @@ func TestHandlersClientErrors(t *testing.T) {
 		{"/api/user/1/check", http.StatusNotFound},
 		{"/api/user/123", http.StatusNotFound},
 	}
-	db := MockDatabase(t)
-	storage := NewStorage(db)
-	sm := scs.New()
-	conf := &RuntimeConfig{Datadir: "testdata/summits"}
-	app := NewAppServer(conf, storage, sm, "")
+	app := GetMockApp(t, 5, &RuntimeConfig{Datadir: "testdata/summits"})
 
 	for _, tt := range cases {
 
@@ -178,22 +175,11 @@ func TestHandlersHappyPath(t *testing.T) {
 		{"/api/summit/malidak/malinovaja", "summit-3.json", nil},
 		{"/api/user/5", "user-1.json", nil},
 	}
-	db := MockDatabase(t)
-	defer db.Pool.Close()
 	conf := &RuntimeConfig{
 		Datadir:      "testdata/summits",
 		ItemsPerPage: 5,
 	}
-
-	storage := NewStorage(db)
-	if err := storage.LoadSummits(conf.Datadir); err != nil {
-		t.Fatal(err)
-	}
-
-	sm := scs.New()
-	sm.Store = NewMockSessionStore(7)
-
-	app := NewAppServer(conf, storage, sm, "")
+	app := GetMockApp(t, 7, conf)
 
 	for _, tt := range cases {
 		req, err := http.NewRequest("GET", tt.url, nil)
@@ -228,5 +214,85 @@ func TestHandlersHappyPath(t *testing.T) {
 		expectedBody := string(expected)
 
 		assert.JSONEq(t, expectedBody, rr.Body.String(), "Response body mismatch for %s", tt.url)
+	}
+}
+
+func TestSummitPutHandler(t *testing.T) {
+	cases := []struct {
+		url          string
+		date         string
+		comment      string
+		expectedDate InexactDate
+	}{
+		// non-existing climb
+		{"/api/summit/malidak/malinovaja", "12.2002", "This is new climb", InexactDate{2002, 12, 0}},
+		// existing climb
+		{"/api/summit/malidak/kirel", "12.06.2023", "This is a new comment", InexactDate{2023, 6, 12}},
+	}
+	userId := int64(7)
+	for _, tt := range cases {
+		conf := &RuntimeConfig{Datadir: "testdata/summits"}
+		app := GetMockApp(t, userId, conf)
+
+		// Test data
+		formData := url.Values{}
+		formData.Set("date", tt.date)
+		formData.Set("comment", tt.comment)
+
+		// First, make the PUT request to record the climb
+		rr := httptest.NewRecorder()
+		req, err := http.NewRequest("PUT", tt.url, strings.NewReader(formData.Encode()))
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		app.router.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+			continue
+		}
+
+		// Now, verify the climb was recorded by checking the climbs endpoint
+		rr = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", tt.url, nil)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+
+		app.router.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != http.StatusOK {
+			t.Errorf("climbs endpoint returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+			continue
+		}
+
+		// Parse the response
+		var response Summit
+		if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+			t.Errorf("Failed to decode response: %v", err)
+			continue
+		}
+
+		// Find our newly added climb
+		if response.ClimbData == nil {
+			t.Error("New climb not found in the climbs list")
+			continue
+		}
+
+		// Verify the climb details
+		if response.ClimbData.Comment != tt.comment {
+			t.Errorf("Expected comment '%s', got '%s'", tt.comment, response.ClimbData.Comment)
+		}
+		if response.ClimbData.Date != tt.expectedDate {
+			t.Errorf("Expected date %v, got %v", tt.expectedDate, response.ClimbData.Date)
+		}
 	}
 }
