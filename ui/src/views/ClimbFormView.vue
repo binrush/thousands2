@@ -101,7 +101,7 @@ onMounted(() => {
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
       
-      <div v-else-if="summit" class="mb-8 p-6 bg-white rounded-lg shadow-sm border border-gray-200">
+      <div v-else-if="summit" class="mb-8 bg-white">
         <div class="flex items-center space-x-2">
           <RouterLink 
             :to="{ name: 'summit', params: { ridge_id: route.params.ridge_id, summit_id: route.params.summit_id }}"
@@ -110,40 +110,40 @@ onMounted(() => {
             {{ summit.name ? `${summit.name}, ` : '' }}{{ summit.height }}м
           </RouterLink>
           <span class="text-gray-500">|</span>
-          <span class="text-gray-600">{{ summit.ridge.name }}</span>
+          <span class="text-gray-600">хребет {{ summit.ridge.name }}</span>
         </div>
       </div>
       
       <form @submit.prevent="submitClimb" class="space-y-6">
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="bg-white">
           <div class="space-y-6">
             <div class="form-group">
-              <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Дата восхождения</label>
+              <label for="date" class="block text-sm text-gray-500 dark:text-gray-300">Дата восхождения</label>
               <input
                 id="date"
                 type="text"
                 v-model="climbData.date"
                 @input="climbData.date = formatDate($event.target.value)"
-                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                class="block  mt-2 w-full placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-blue-300"
                 placeholder="дд.мм.гггг"
               >
-              <p class="mt-2 text-sm text-gray-500">
+              <p class="mt-2 text-xs text-gray-500">
                 Необязательное поле. Если точная дата неизвестна, можно ввести только месяц (например 2.2012) или только год (например 2012)
               </p>
             </div>
 
             <div class="form-group">
-              <label for="comment" class="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+              <label for="comment" class="block text-sm text-gray-500 dark:text-gray-300">Описание</label>
               <textarea
                 id="comment"
                 v-model="climbData.comment"
                 rows="6"
                 maxlength="1000"
-                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                class="block  mt-2 w-full  placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border border-gray-200 bg-white px-4 h-32 py-2.5 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-blue-300"
                 placeholder="Расскажите о вашем восхождении..."
               ></textarea>
               <div class="flex justify-between mt-2">
-                <p class="text-sm text-gray-500">
+                <p class="text-xs text-gray-500">
                   Необязательное поле.
                 </p>
                 <p class="text-sm text-gray-500">
@@ -157,7 +157,7 @@ onMounted(() => {
         <div class="flex justify-end">
           <button
             type="submit"
-            class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-6 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80"
             :disabled="isSubmitting"
           >
             {{ isSubmitting ? 'Сохранение...' : 'Сохранить' }}

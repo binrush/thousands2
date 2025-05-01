@@ -1,12 +1,13 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuth } from '../auth'
 import { getImageUrl } from '../utils/images'
 import { formatRussianDate } from '../utils/dates'
+import Pagination from '../components/Pagination.vue'
+import { usePagination } from '../composables/usePagination'
 
 const route = useRoute()
-const router = useRouter()
 const { authState } = useAuth()
 
 const summit = ref(null)
@@ -14,66 +15,38 @@ const climbs = ref([])
 const isLoading = ref(true)
 const isLoadingClimbs = ref(false)
 const error = ref(null)
-const currentPage = ref(1)
-const totalPages = ref(1)
 const totalClimbs = ref(0)
 const climbersSection = ref(null)
 
-// Determine which pages to show in pagination
-const paginationItems = computed(() => {
-  const items = []
-  // For consistent width, we'll always show 5 items
-  
-  if (totalPages.value <= 5) {
-    // If 5 or fewer pages, show all pages
-    for (let i = 1; i <= totalPages.value; i++) {
-      items.push({ type: 'page', value: i })
-    }
+// Declare fetchClimbs first before using it in usePagination
+async function fetchClimbs(page = 1) {
+  try {
+    isLoadingClimbs.value = true
     
-    // Fill remaining slots with empty items for consistent width
-    for (let i = totalPages.value + 1; i <= 5; i++) {
-      items.push({ type: 'empty', value: '' })
-    }
-  } else {
-    // More than 5 pages, we need to be selective
-    if (currentPage.value <= 3) {
-      // Near the start: show 1, 2, 3, ..., totalPages
-      items.push({ type: 'page', value: 1 })
-      items.push({ type: 'page', value: 2 })
-      items.push({ type: 'page', value: 3 })
-      items.push({ type: 'ellipsis', value: '...' })
-      items.push({ type: 'page', value: totalPages.value })
-    } else if (currentPage.value >= totalPages.value - 2) {
-      // Near the end: show 1, ..., totalPages-2, totalPages-1, totalPages
-      items.push({ type: 'page', value: 1 })
-      items.push({ type: 'ellipsis', value: '...' })
-      items.push({ type: 'page', value: totalPages.value - 2 })
-      items.push({ type: 'page', value: totalPages.value - 1 })
-      items.push({ type: 'page', value: totalPages.value })
-    } else {
-      // In the middle: show 1, ..., currentPage, ..., totalPages
-      items.push({ type: 'page', value: 1 })
-      items.push({ type: 'ellipsis', value: '...' })
-      items.push({ type: 'page', value: currentPage.value })
-      items.push({ type: 'ellipsis', value: '...' })
-      items.push({ type: 'page', value: totalPages.value })
-    }
+    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}/climbs?page=${page}`)
+    if (!response.ok) throw new Error('Failed to fetch climbs')
+    const data = await response.json()
+    
+    // Update the climbs data
+    climbs.value = data.climbs
+    totalClimbs.value = data.total_climbs
+    
+    // Calculate total pages
+    const itemsPerPage = 20
+    totalPages.value = Math.ceil(data.total_climbs / itemsPerPage)
+    
+  } catch (err) {
+    console.error('Error fetching climbs:', err)
+  } finally {
+    isLoadingClimbs.value = false
   }
-  
-  return items
+}
+
+// Now use our pagination composable
+const { currentPage, totalPages, handlePageChange } = usePagination(fetchClimbs, {
+  scrollRef: climbersSection,
+  preserveScroll: true
 })
-
-const goToPreviousPage = () => {
-  if (currentPage.value > 1) {
-    handlePageChange(currentPage.value - 1)
-  }
-}
-
-const goToNextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    handlePageChange(currentPage.value + 1)
-  }
-}
 
 // Initial data fetch to get summit details
 const fetchSummitDetails = async () => {
@@ -89,106 +62,13 @@ const fetchSummitDetails = async () => {
   }
 }
 
-// Fetch only the climbs for pagination
-const fetchClimbs = async (page = 1) => {
-  try {
-    isLoadingClimbs.value = true
-    
-    // Capture scroll position before fetching
-    const climbersEl = climbersSection.value
-    const scrollPos = climbersEl ? climbersEl.getBoundingClientRect().top + window.scrollY : 0
-    
-    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}/climbs?page=${page}`)
-    if (!response.ok) throw new Error('Failed to fetch climbs')
-    const data = await response.json()
-    
-    // Update the climbs data
-    climbs.value = data.climbs
-    totalClimbs.value = data.total_climbs
-    
-    // Calculate total pages
-    const itemsPerPage = 20
-    totalPages.value = Math.ceil(data.total_climbs / itemsPerPage)
-    
-    // Restore scroll position after data is loaded
-    if (climbersEl) {
-      setTimeout(() => {
-        window.scrollTo({
-          top: scrollPos,
-          behavior: 'auto'
-        })
-      }, 10)
-    }
-  } catch (err) {
-    console.error('Error fetching climbs:', err)
-  } finally {
-    isLoadingClimbs.value = false
-  }
-}
-
 // Watch for route changes to reset pagination and fetch data
 watch(() => route.params, () => {
-  // Reset pagination when ridge or summit changes
-  const pageFromUrl = route.query.page ? parseInt(route.query.page) : 1
-  currentPage.value = pageFromUrl
-  
-  // Fetch data
+  // Fetch summit details whenever the route params change
   fetchSummitDetails()
-  fetchClimbs(pageFromUrl)
+  // Also fetch climb data
+  fetchClimbs(currentPage.value)
 }, { immediate: true })
-
-// Watch for page query parameter changes
-watch(() => route.query.page, (newPage) => {
-  const pageNum = newPage ? parseInt(newPage) : 1
-  if (pageNum !== currentPage.value && pageNum > 0) {
-    currentPage.value = pageNum
-    fetchClimbs(pageNum)
-  }
-}, { immediate: true })
-
-const handlePageChange = (page) => {
-  if (currentPage.value === page) return
-  
-  // Capture current scroll position relative to the climbers section
-  const climbersEl = climbersSection.value
-  const currentScrollPos = climbersEl ? climbersEl.getBoundingClientRect().top + window.scrollY : 0
-  
-  // Update URL with the new page
-  const query = { ...route.query }
-  if (page === 1) {
-    // Remove page parameter for page 1 (cleaner URL)
-    delete query.page
-  } else {
-    query.page = page
-  }
-  
-  // Use router replace to update URL without creating new history entries
-  // and prevent scrolling behavior with replace + custom options
-  router.replace({ 
-    query,
-    params: route.params
-  }, 
-  // Second parameter (undefined) is for onComplete callback
-  undefined,
-  // Third parameter contains navigation options
-  { 
-    preserveState: true,
-    preventScroll: true 
-  })
-  
-  currentPage.value = page
-  fetchClimbs(page)
-  
-  // After data is loaded, restore scroll position
-  setTimeout(() => {
-    if (climbersEl) {
-      window.scrollTo({
-        top: currentScrollPos,
-        behavior: 'auto'
-      })
-    }
-  }, 100)
-}
 </script>
 
 <template>
@@ -235,7 +115,7 @@ const handlePageChange = (page) => {
               <RouterLink 
                 v-if="!summit.climbed"
                 :to="`/${route.params.ridge_id}/${route.params.summit_id}/climb`"
-                class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md text-sm font-medium tracking-wider"
+                class="px-6 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80"
               >
                 Зарегистрировать восхождение
               </RouterLink>
@@ -322,67 +202,13 @@ const handlePageChange = (page) => {
           </div>
         </div>
 
-        <!-- Pagination - position absolute to prevent jumping -->
-        <div v-if="totalPages > 1" class="mt-12 mb-4">
-          <div class="flex justify-center">
-            <div class="flex items-center w-[320px] justify-center">
-              <!-- Previous button -->
-              <button 
-                @click="goToPreviousPage" 
-                :class="[
-                  'flex items-center justify-center w-10 h-10 mx-1 text-gray-700 transition-colors duration-300 transform bg-white rounded-md rtl:-scale-x-100',
-                  currentPage === 1 ? 'cursor-not-allowed text-gray-500' : 'hover:bg-blue-500 hover:text-white'
-                ]"
-                :disabled="currentPage === 1"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-              </button>
-
-              <!-- Center pagination area with fixed width -->
-              <div class="flex items-center justify-center w-[220px]">
-                <template v-for="(item, index) in paginationItems" :key="index">
-                  <button
-                    v-if="item.type === 'page'"
-                    @click="handlePageChange(item.value)"
-                    class="w-10 h-10 mx-1 transition-colors duration-300 transform bg-white rounded-md sm:inline hover:bg-blue-500 hover:text-white flex items-center justify-center"
-                    :class="currentPage === item.value ? 'bg-blue-500 text-white' : 'text-gray-700'"
-                  >
-                    {{ item.value }}
-                  </button>
-                  
-                  <span 
-                    v-else-if="item.type === 'ellipsis'" 
-                    class="w-10 h-10 mx-1 text-gray-700 flex items-center justify-center"
-                  >
-                    {{ item.value }}
-                  </span>
-
-                  <span
-                    v-else-if="item.type === 'empty'"
-                    class="w-10 h-10 mx-1 flex items-center justify-center invisible"
-                  >
-                    &nbsp;
-                  </span>
-                </template>
-              </div>
-
-              <!-- Next button -->
-              <button 
-                @click="goToNextPage" 
-                :class="[
-                  'flex items-center justify-center w-10 h-10 mx-1 text-gray-700 transition-colors duration-300 transform bg-white rounded-md rtl:-scale-x-100',
-                  currentPage === totalPages ? 'cursor-not-allowed text-gray-500' : 'hover:bg-blue-500 hover:text-white'
-                ]"
-                :disabled="currentPage === totalPages"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
+        <!-- Replace the pagination section with our component -->
+        <div class="mt-12 mb-4">
+          <Pagination 
+            :current-page="currentPage" 
+            :total-pages="totalPages" 
+            @page-change="handlePageChange"
+          />
         </div>
       </div>
     </div>

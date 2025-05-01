@@ -165,18 +165,17 @@ func TestHandlersHappyPath(t *testing.T) {
 		url                string
 		expectedResultFile string
 	}{
-		{"/top", "top-1.json"},
-		{"/top?page=1", "top-1.json"},
-		{"/top?page=2", "top-2.json"},
-		{"/top?page=3", "top-3.json"},
-		{"/summit/malidak/kirel", "summit-1.json"},
-		{"/summit/malidak/kirel?page=2", "summit-1-page-2.json"},
-		{"/summit/malidak/kirel/climbs", "summit-climbs-1.json"},
-		{"/summit/malidak/kirel/climbs?page=2", "summit-climbs-1-page-2.json"},
-		{"/summit/stolby/1021/climbs", "summit-climbs-2.json"},
-		{"/summit/stolby/1021", "summit-2.json"},
-		{"/summit/malidak/malinovaja", "summit-3.json"},
-		{"/user/5", "user-1.json"},
+		{"/api/top?page=1", "top-1.json"},
+		{"/api/top?page=2", "top-2.json"},
+		{"/api/top?page=3", "top-3.json"},
+		{"/api/summit/malidak/kirel", "summit-1.json"},
+		{"/api/summit/malidak/kirel?page=2", "summit-1-page-2.json"},
+		{"/api/summit/malidak/kirel/climbs", "summit-climbs-1.json"},
+		{"/api/summit/malidak/kirel/climbs?page=2", "summit-climbs-1-page-2.json"},
+		{"/api/summit/stolby/1021/climbs", "summit-climbs-2.json"},
+		{"/api/summit/stolby/1021", "summit-2.json"},
+		{"/api/summit/malidak/malinovaja", "summit-3.json"},
+		{"/api/user/5", "user-1.json"},
 	}
 	db := MockDatabase(t)
 	defer db.Pool.Close()
@@ -188,10 +187,12 @@ func TestHandlersHappyPath(t *testing.T) {
 	storage := NewStorage(db)
 	if err := storage.LoadSummits(conf.Datadir); err != nil {
 		t.Fatal(err)
-		return
 	}
 
-	api := NewApi(conf, storage, nil)
+	sm := scs.New()
+	sm.Store = &MockSessionStore{}
+
+	app := NewAppServer(conf, storage, sm, "")
 
 	for _, tt := range cases {
 		req, err := http.NewRequest("GET", tt.url, nil)
@@ -201,7 +202,7 @@ func TestHandlersHappyPath(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		api.router.ServeHTTP(rr, req)
+		app.router.ServeHTTP(rr, req)
 		res := rr.Result()
 		if status := res.StatusCode; status != http.StatusOK {
 			t.Errorf("handler returned wrong status code for url %s: got %v want %v.",

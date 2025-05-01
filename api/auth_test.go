@@ -21,6 +21,7 @@ const (
 	MockClientSecret = "mock_client_secret"
 	MockAccessToken  = "mock_access_token"
 	MockOauthUserId  = "2343"
+	MockUserId       = int64(5)
 )
 
 type MockSessionStore struct {
@@ -35,7 +36,7 @@ func (mss *MockSessionStore) Find(token string) (b []byte, found bool, err error
 		return nil, false, nil
 	}
 	mockData := make(map[string]interface{})
-	mockData[UserIdKey] = int64(5)
+	mockData[UserIdKey] = MockUserId
 	codec := scs.GobCodec{}
 	res, err := codec.Encode(time.Now().Add(24*time.Hour), mockData)
 	if err != nil {

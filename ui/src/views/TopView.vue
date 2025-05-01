@@ -45,94 +45,22 @@
           </div>
         </div>
 
-        <!-- Pagination -->
-        <div v-if="topClimbers.total_pages > 1" class="mt-6 flex justify-center">
-          <nav class="flex items-center space-x-2">
-            <!-- Previous page button -->
-            <button
-              @click="loadTopClimbers(topClimbers.page - 1)"
-              :disabled="topClimbers.page === 1"
-              :class="[
-                'px-3 py-1 rounded-md text-sm font-medium',
-                topClimbers.page === 1
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 hover:bg-gray-100'
-              ]"
-            >
-              ←
-            </button>
-
-            <!-- First page -->
-            <button
-              @click="loadTopClimbers(1)"
-              :class="[
-                'px-3 py-1 rounded-md text-sm font-medium',
-                topClimbers.page === 1
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              ]"
-            >
-              1
-            </button>
-
-            <!-- Left ellipsis -->
-            <span v-if="leftEllipsis" class="px-2 text-gray-400">...</span>
-
-            <!-- Page numbers -->
-            <button
-              v-for="page in visiblePages"
-              :key="page"
-              @click="loadTopClimbers(page)"
-              :class="[
-                'px-3 py-1 rounded-md text-sm font-medium',
-                topClimbers.page === page
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              ]"
-            >
-              {{ page }}
-            </button>
-
-            <!-- Right ellipsis -->
-            <span v-if="rightEllipsis" class="px-2 text-gray-400">...</span>
-
-            <!-- Last page -->
-            <button
-              v-if="topClimbers.total_pages > 1"
-              @click="loadTopClimbers(topClimbers.total_pages)"
-              :class="[
-                'px-3 py-1 rounded-md text-sm font-medium',
-                topClimbers.page === topClimbers.total_pages
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              ]"
-            >
-              {{ topClimbers.total_pages }}
-            </button>
-
-            <!-- Next page button -->
-            <button
-              @click="loadTopClimbers(topClimbers.page + 1)"
-              :disabled="topClimbers.page === topClimbers.total_pages"
-              :class="[
-                'px-3 py-1 rounded-md text-sm font-medium',
-                topClimbers.page === topClimbers.total_pages
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 hover:bg-gray-100'
-              ]"
-            >
-              →
-            </button>
-          </nav>
-        </div>
+        <!-- Pagination component -->
+        <Pagination 
+          :current-page="currentPage" 
+          :total-pages="totalPages" 
+          @page-change="handlePageChange"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { getImageUrl } from '../utils/images'
+import Pagination from '../components/Pagination.vue'
+import { usePagination } from '../composables/usePagination'
 
 const topClimbers = ref({
   items: [],
@@ -140,52 +68,30 @@ const topClimbers = ref({
   total_pages: 1
 })
 
-const VISIBLE_PAGES_COUNT = 5 // Number of pages to show between ellipsis
-
-const visiblePages = computed(() => {
-  const current = topClimbers.value.page
-  const total = topClimbers.value.total_pages
-  const pages = []
-  
-  // Calculate range of visible pages
-  let start = Math.max(2, current - Math.floor(VISIBLE_PAGES_COUNT / 2))
-  let end = Math.min(total - 1, start + VISIBLE_PAGES_COUNT - 1)
-  
-  // Adjust start if we're near the end
-  if (end === total - 1) {
-    start = Math.max(2, end - VISIBLE_PAGES_COUNT + 1)
-  }
-  
-  // Add visible page numbers
-  for (let i = start; i <= end; i++) {
-    pages.push(i)
-  }
-  
-  return pages
-})
-
-const leftEllipsis = computed(() => {
-  return visiblePages.value.length > 0 && visiblePages.value[0] > 2
-})
-
-const rightEllipsis = computed(() => {
-  return visiblePages.value.length > 0 && 
-         visiblePages.value[visiblePages.value.length - 1] < topClimbers.value.total_pages - 1
-})
-
-async function loadTopClimbers(page = 1) {
+// Fetch function for top climbers
+async function fetchTopClimbers(page = 1) {
   try {
     const response = await fetch(`/api/top?page=${page}`)
     if (response.ok) {
-      topClimbers.value = await response.json()
+      const data = await response.json()
+      topClimbers.value = data
+      
+      // Update totalPages from response
+      if (data.total_pages) {
+        totalPages.value = data.total_pages
+      }
     }
   } catch (error) {
     console.error('Error loading top climbers:', error)
   }
 }
 
+// Use the pagination composable
+const { currentPage, totalPages, handlePageChange } = usePagination(fetchTopClimbers)
+
+// Initial fetch on mount
 onMounted(() => {
-  loadTopClimbers()
+  fetchTopClimbers(currentPage.value)
 })
 </script>
 

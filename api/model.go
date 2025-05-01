@@ -101,6 +101,11 @@ type SummitImage struct {
 	Comment string `json:"comment"`
 }
 
+type ClimbData struct {
+	Date    InexactDate `json:"date"`
+	Comment string      `json:"comment"`
+}
+
 type Summit struct {
 	Id             string        `json:"id"`
 	Name           *string       `json:"name"`
@@ -111,6 +116,7 @@ type Summit struct {
 	Coordinates    [2]float32    `json:"coordinates"`
 	Ridge          *Ridge        `json:"ridge"`
 	Images         []SummitImage `json:"images"`
+	ClimbData      *ClimbData    `json:"climb_data"`
 }
 
 func (s *Summit) JSON() ([]byte, error) {
@@ -427,7 +433,7 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 	return climbs, totalClimbs, nil
 }
 
-func (s *Storage) FetchSummit(summitId string, page, itemsPerPage int) (*Summit, error) {
+func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	var summit Summit
 	var ridge Ridge
 	summit.Name = new(string)
@@ -456,6 +462,13 @@ func (s *Storage) FetchSummit(summitId string, page, itemsPerPage int) (*Summit,
 	summit.Images, err = s.FetchSummitImages(summit.Id)
 	if err != nil {
 		return nil, err
+	}
+	if userId != 0 {
+		climbQuery := `SELECT year, month, day, comment FROM climbs WHERE summit_id = ? AND user_id = ?`
+		err := s.db.Pool.QueryRow(climbQuery, summit.Id, userId).Scan(&summit.ClimbData.Date.Year, &summit.ClimbData.Date.Month, &summit.ClimbData.Date.Day, &summit.ClimbData.Comment)
+		if err != sql.ErrNoRows && err != nil {
+			return nil, err
+		}
 	}
 
 	return &summit, nil
