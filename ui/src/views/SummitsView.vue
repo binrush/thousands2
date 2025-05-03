@@ -97,8 +97,8 @@ watch(
 </script>
 
 <template>
-  <div class="max-w-screen-md mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+  <div class="max-w-screen-md mx-auto">
+    <div class="overflow-hidden">
       <div class="p-6">
         <h1 class="text-2xl font-bold text-gray-900 mb-6">Все вершины Южного Урала выше тысячи метров</h1>
         
