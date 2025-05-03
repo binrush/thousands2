@@ -1,7 +1,8 @@
 <script setup>
 import { inject, ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-
+import { getImageUrl } from '../utils/images'
+import { formatRussianDate } from '../utils/dates'
 const props = defineProps({
   user_id: {
     type: String,
@@ -11,6 +12,7 @@ const props = defineProps({
 
 const currentUser = inject('currentUser')
 const user = ref(null)
+const climbs = ref([])
 const isLoading = ref(true)
 const error = ref(null)
 const route = useRoute()
@@ -38,7 +40,17 @@ async function loadUser() {
         user.value = await response.json()
       } else {
         error.value = 'Не удалось загрузить данные пользователя'
+        return
       }
+    }
+
+    // Load climbs
+    const actualUserId = userId === 'me' ? currentUser.value.id : userId
+    const climbsResponse = await fetch(`/api/user/${actualUserId}/climbs`)
+    if (climbsResponse.ok) {
+      climbs.value = await climbsResponse.json()
+    } else {
+      error.value = 'Не удалось загрузить список восхождений'
     }
   } catch (error) {
     console.error('Error loading user:', error)
@@ -59,7 +71,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-screen-md mx-auto px-4 py-8">
+  <div class="max-w-screen-md mx-auto">
     <!-- Loading State -->
     <div v-if="isLoading" class="flex justify-center py-8">
       <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -73,49 +85,60 @@ onMounted(() => {
     <!-- Content -->
     <div v-else-if="user" class="space-y-6">
       <!-- User Info Card -->
-      <div class="bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="overflow-hidden">
         <div class="p-6">
-          <h1 class="text-2xl font-bold text-gray-900">{{ user.name }}</h1>
-          <p v-if="user.email" class="text-gray-600 mt-1">{{ user.email }}</p>
+          <div class="flex items-center space-x-4">
+            <div class="flex-shrink-0">
+              <img 
+                v-if="user.image_m"
+                :src="getImageUrl(user.image_m)" 
+                :alt="user.name"
+                class="h-12 w-12 rounded-full object-cover"
+              >
+              <img 
+                v-else
+                src="/climber_no_photo.svg" 
+                :alt="user.name"
+                class="h-12 w-12 rounded-full"
+              >
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ user.name }}</h1>
+          </div>
         </div>
       </div>
 
       <!-- Climbs Section -->
-      <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="p-6">
+      <div class="overflow-hidden">
           <h2 class="text-xl font-semibold text-gray-900 mb-4">Восхождения</h2>
           
-          <div v-if="!user.climbs?.length" class="text-center text-gray-500 py-4">
+          <div v-if="!climbs.length" class="text-center text-gray-500">
             Пока нет зарегистрированных восхождений
           </div>
 
           <div v-else class="space-y-4">
             <div 
-              v-for="climb in user.climbs" 
+              v-for="climb in climbs" 
               :key="climb.id" 
-              class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
             >
               <div class="flex justify-between items-start">
                 <div>
                   <RouterLink 
-                    :to="`/${climb.ridge_id}/${climb.summit_id}`"
+                    :to="`/${climb.ridge.id}/${climb.id}`"
                     class="text-lg font-medium text-gray-900 hover:text-blue-600"
                   >
-                    {{ climb.summit_name }}
+                    {{ climb.name || climb.height }}
                   </RouterLink>
-                  <p class="text-sm text-gray-600">Хребет: {{ climb.ridge_name }}</p>
-                  <p class="text-sm text-gray-600">Высота: {{ climb.height }}м</p>
+                  <span class="text-sm text-gray-600 px-2">хребет {{ climb.ridge.name }}</span>
                 </div>
                 <div class="text-sm text-gray-500">
-                  {{ new Date(climb.date).toLocaleDateString() }}
+                  {{ formatRussianDate(climb.climb_data?.date) }}
                 </div>
               </div>
-              <p v-if="climb.description" class="mt-2 text-sm text-gray-600">
-                {{ climb.description }}
+              <p v-if="climb.climb_data?.comment" class="mt-2 text-sm text-gray-600">
+                {{ climb.climb_data.comment }}
               </p>
             </div>
           </div>
-        </div>
       </div>
     </div>
   </div>

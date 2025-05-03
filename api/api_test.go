@@ -168,6 +168,7 @@ func TestHandlersHappyPath(t *testing.T) {
 		{"stolby summit", "/api/summit/stolby/1021", "summit-2.json", nil},
 		{"malinovaja summit", "/api/summit/malidak/malinovaja", "summit-3.json", nil},
 		{"user profile", "/api/user/5", "user-1.json", nil},
+		{"user climbs", "/api/user/5/climbs", "user-climbs-1.json", nil},
 	}
 	conf := &RuntimeConfig{
 		Datadir:      "testdata/summits",
@@ -186,8 +187,8 @@ func TestHandlersHappyPath(t *testing.T) {
 			rr := httptest.NewRecorder()
 			app.router.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
-			assert.Equal(t, "application/json", rr.Header().Get("Content-Type"), "Wrong Content-Type header")
+			require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+			require.Equal(t, "application/json", rr.Header().Get("Content-Type"), "Wrong Content-Type header")
 
 			expected, err := os.ReadFile(filepath.Join("testdata/responses", tt.expectedResultFile))
 			require.NoError(t, err, "Failed to read expected json data")

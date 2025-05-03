@@ -1,0 +1,71 @@
+[
+  {
+    "climb_data": {
+      "comment": "Future-proofed optimizing methodology",
+      "date": {
+        "Day": 7,
+        "Month": 3,
+        "Year": 1990
+      }
+    },
+    "coordinates": [0, 0],
+    "description": null,
+    "height": 1008,
+    "id": "kurkak",
+    "images": null,
+    "interpretation": null,
+    "name": "Куркак",
+    "name_alt": null,
+    "ridge": {
+      "color": "",
+      "id": "kurkak",
+      "name": "Куркак"
+    }
+  },
+  {
+    "climb_data": {
+      "comment": "Profit-focused demand-driven core",
+      "date": {
+        "Day": 0,
+        "Month": 0,
+        "Year": 0
+      }
+    },
+    "coordinates": [0, 0],
+    "description": null,
+    "height": 1162,
+    "id": "kirel",
+    "images": null,
+    "interpretation": null,
+    "name": "Кирель",
+    "name_alt": null,
+    "ridge": {
+      "color": "",
+      "id": "malidak",
+      "name": "Малидак"
+    }
+  },
+  {
+    "climb_data": {
+      "comment": "Secured national open architecture",
+      "date": {
+        "Day": 0,
+        "Month": 0,
+        "Year": 0
+      }
+    },
+    "coordinates": [0, 0],
+    "description": null,
+    "height": 1152,
+    "id": "malinovaja",
+    "images": null,
+    "interpretation": null,
+    "name": "Малиновая",
+    "name_alt": null,
+    "ridge": {
+      "color": "",
+      "id": "malidak",
+      "name": "Малидак"
+    }
+  }
+] 

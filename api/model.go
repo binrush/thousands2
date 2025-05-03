@@ -56,6 +56,18 @@ func (id *InexactDate) parseString(date string) ([]int64, error) {
 	return partsInt, nil
 }
 
+func (id *InexactDate) FromSQL(year, month, day sql.NullInt64) {
+	if year.Valid {
+		id.Year = year.Int64
+	}
+	if month.Valid {
+		id.Month = month.Int64
+	}
+	if day.Valid {
+		id.Day = day.Int64
+	}
+}
+
 func (id *InexactDate) Parse(date string) error {
 	parts, err := id.parseString(date)
 	if err != nil {
@@ -647,4 +659,38 @@ func (s *Storage) DeleteClimb(summitId string, userId int64) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Storage) FetchUserClimbs(userId int64) ([]Summit, error) {
+	query := `select summits.id, summits.name, summits.height,
+					 ridges.id, ridges.name, 
+					 climbs.year, climbs.month, climbs.day, climbs.comment
+		from summits 
+			inner join climbs on summits.id = climbs.summit_id 
+			inner join ridges on summits.ridge_id = ridges.id 
+		where climbs.user_id = ?
+		order by year ASC NULLS LAST, month ASC NULLS LAST, day ASC NULLS LAST, summits.id ASC`
+	rows, err := s.db.Pool.Query(query, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	climbs := make([]Summit, 0)
+	for rows.Next() {
+		var summit Summit
+		var ridge Ridge
+		var climbData ClimbData
+		var year, month, day sql.NullInt64
+		err := rows.Scan(
+			&summit.Id, &summit.Name, &summit.Height, &ridge.Id, &ridge.Name, &year, &month, &day, &climbData.Comment)
+
+		if err != nil {
+			return nil, err
+		}
+		climbData.Date.FromSQL(year, month, day)
+		summit.ClimbData = &climbData
+		summit.Ridge = &ridge
+		climbs = append(climbs, summit)
+	}
+	return climbs, nil
 }

@@ -55,6 +55,7 @@ func NewApi(config *RuntimeConfig, storage *Storage, sm *scs.SessionManager) *Ap
 	api.router.Get("/top", api.handleTop)
 	api.router.Get("/user/me", api.handleUserMe)
 	api.router.Get("/user/{userId}", api.handleUser)
+	api.router.Get("/user/{userId}/climbs", api.handleUserClimbs)
 
 	return api
 }
@@ -239,7 +240,7 @@ func (h *Api) handleUser(w http.ResponseWriter, r *http.Request) {
 	h.handleUserById(w, r, userId)
 }
 
-func (h *Api) handleUserById(w http.ResponseWriter, r *http.Request, userId int64) {
+func (h *Api) handleUserById(w http.ResponseWriter, _ *http.Request, userId int64) {
 	user, err := h.Storage.GetUserById(userId)
 	if err != nil {
 		log.Printf("Failed to get user %d by ID: %v", userId, err)
@@ -252,6 +253,23 @@ func (h *Api) handleUserById(w http.ResponseWriter, r *http.Request, userId int6
 		return
 	}
 	h.writeJSON(w, user)
+}
+
+func (h *Api) handleUserClimbs(w http.ResponseWriter, r *http.Request) {
+	userIdStr := chi.URLParam(r, "userId")
+	userId, err := strconv.ParseInt(userIdStr, 10, 64)
+	if err != nil {
+		h.writeError(w, pathNotFoundError)
+		return
+	}
+
+	climbs, err := h.Storage.FetchUserClimbs(userId)
+	if err != nil {
+		log.Printf("Failed to fetch climbs for user %d: %v", userId, err)
+		h.writeError(w, serverError)
+		return
+	}
+	h.writeJSON(w, climbs)
 }
 
 func (h *Api) writeJSON(w http.ResponseWriter, data interface{}) {
