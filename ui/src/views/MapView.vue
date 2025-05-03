@@ -1,14 +1,17 @@
 <template>
-  <div class="map-view">
-    <div id="map" class="map-container"></div>
-  </div>
+    <div id="map" class="w-full h-full"></div>
 </template>
 
 <script setup>
 import mapboxgl from 'mapbox-gl';
 import MapboxLanguage from '@mapbox/mapbox-gl-language';
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, defineOptions } from 'vue'
 import { useRouter } from 'vue-router'
+
+// Specify layout to use
+defineOptions({
+    layout: 'map'
+})
 
 const router = useRouter()
 
@@ -81,17 +84,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.map-view {
-  width: 100%;
-  height: calc(100vh - 4rem - 4rem); /* viewport height minus header (4rem) and footer (4rem) */
-  position: relative;
-}
-
-.map-container {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
 </style>

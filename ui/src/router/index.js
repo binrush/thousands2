@@ -21,7 +21,7 @@ const router = createRouter({
       path: '/map',
       name: 'map',
       component: MapView,
-      meta: { title: 'Карта' }
+      meta: { title: 'Карта', layout: 'MapLayout' }
     },
     {
       path: '/top',
