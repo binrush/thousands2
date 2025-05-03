@@ -91,18 +91,14 @@ watch(() => route.params, () => {
               <span v-if="summit.name_alt" class="text-gray-500 text-sm">({{ summit.name_alt }})</span>
             </h1>
             
-            <div class="mt-4 flex items-center space-x-4">
+            <div class="mt-2 flex items-center">
               <span class="text-gray-700">
-                <span class="font-semibold">Высота:</span> {{ summit.height }} м
-              </span>
-              <span class="text-gray-700">
-                <span class="font-semibold">Хребет:</span> {{ summit.ridge.name }}
+                {{ summit.height }}м, хребет {{ summit.ridge.name }}
               </span>
             </div>
 
-            <div v-if="summit.coordinates" class="mt-2">
+            <div class="mt-2">
               <span class="text-gray-700">
-                <span class="font-semibold">Координаты:</span> 
                 {{ summit.coordinates[0] }}, {{ summit.coordinates[1] }}
               </span>
             </div>
@@ -145,7 +141,7 @@ watch(() => route.params, () => {
             v-if="summit.images && summit.images.length > 0 && summit.images[0].url"
             :src="getImageUrl(summit.images[0].url)" 
             :alt="summit.name || 'Вершина'"
-            class="w-full h-full object-cover"
+            class="w-full h-full object-cover rounded-lg"
           />
           <div v-else class="w-full h-full bg-gray-200 flex items-center justify-center">
             <span class="text-gray-400 text-lg font-medium">Нет изображения</span>

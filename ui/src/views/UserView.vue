@@ -109,36 +109,47 @@ onMounted(() => {
 
       <!-- Climbs Section -->
       <div class="overflow-hidden">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Восхождения</h2>
-          
-          <div v-if="!climbs.length" class="text-center text-gray-500">
-            Пока нет зарегистрированных восхождений
-          </div>
-
-          <div v-else class="space-y-4">
-            <div 
-              v-for="climb in climbs" 
-              :key="climb.id" 
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Восхождения</h2>
+        <div v-if="!climbs.length" class="text-center text-gray-500">
+          Пока нет зарегистрированных восхождений
+        </div>
+        <div v-else>
+          <ul>
+            <li
+              v-for="climb in climbs"
+              :key="climb.id"
+              class="py-2 border-b last:border-b-0 flex flex-col"
             >
-              <div class="flex justify-between items-start">
+              <div class="flex justify-between items-baseline">
                 <div>
-                  <RouterLink 
+                  <RouterLink
                     :to="`/${climb.ridge.id}/${climb.id}`"
-                    class="text-lg font-medium text-gray-900 hover:text-blue-600"
+                    class="font-bold text-lg text-gray-900 hover:text-blue-600"
                   >
                     {{ climb.name || climb.height }}
                   </RouterLink>
-                  <span class="text-sm text-gray-600 px-2">хребет {{ climb.ridge.name }}</span>
+                  <span class="text-sm text-gray-600 ml-2">хребет {{ climb.ridge.name }}</span>
                 </div>
-                <div class="text-sm text-gray-500">
-                  {{ formatRussianDate(climb.climb_data?.date) }}
+                <div class="flex items-center gap-2">
+                  <div class="text-sm text-gray-500 whitespace-nowrap ml-4">
+                    {{ formatRussianDate(climb.climb_data?.date) }}
+                  </div>
+                  <template v-if="(props.user_id === 'me' || user?.id === currentUser?.id)">
+                    <RouterLink
+                      :to="`/${climb.ridge.id}/${climb.id}/climb`"
+                      class="ml-2 text-blue-500 hover:underline text-xs"
+                    >
+                      Редактировать
+                    </RouterLink>
+                  </template>
                 </div>
               </div>
-              <p v-if="climb.climb_data?.comment" class="mt-2 text-sm text-gray-600">
+              <div v-if="climb.climb_data?.comment" class="text-sm mt-1">
                 {{ climb.climb_data.comment }}
-              </p>
-            </div>
-          </div>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
