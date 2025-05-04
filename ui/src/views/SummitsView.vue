@@ -98,69 +98,69 @@ watch(
 
 <template>
   <div class="max-w-screen-md mx-auto overflow-hidden">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Все вершины Южного Урала выше тысячи метров</h1>
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">Все вершины Южного Урала выше тысячи метров</h1>
 
-      <!-- Search -->
-      <div class="mb-6">
-        <div class="relative">
-          <input type="text" v-model="search" placeholder="Поиск по названию или хребту..."
-            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-          <button v-if="search" @click="resetSearch"
-            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clip-rule="evenodd" />
-            </svg>
-          </button>
-        </div>
+    <!-- Search -->
+    <div class="mb-6">
+      <div class="relative">
+        <input type="text" v-model="search" placeholder="Поиск по названию или хребту..."
+          class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <button v-if="search" @click="resetSearch"
+          class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clip-rule="evenodd" />
+          </svg>
+        </button>
       </div>
+    </div>
 
-      <!-- Table -->
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th @click="updateSort('name')"
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                Название
-              </th>
-              <th @click="updateSort('height')"
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                Высота
-              </th>
-              <th @click="updateSort('ridge')"
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                Хребет
-              </th>
-              <th @click="updateSort('visitors')"
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
-                Восходителей
-              </th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="summit in filteredSummits" :key="summit.id" class="hover:bg-gray-50">
-              <td class="px-6 py-4 whitespace-nowrap">
-                <router-link :to="{ name: 'summit', params: { ridge_id: summit.ridge_id, summit_id: summit.id } }"
-                  class="text-blue-600 hover:text-blue-800" :class="{ 'font-bold': summit.is_main }">
-                  {{ summit.name ? summit.name : summit.height }}
-                </router-link>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span :class="{ 'font-bold': summit.is_main }">{{ summit.height }}</span>
-                <span v-if="summit.rank" class="text-xs text-gray-500 ml-1">{{ summit.rank }}</span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-gray-900">
-                {{ summit.ridge }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-gray-900">
-                {{ summit.visitors }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th @click="updateSort('name')"
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+              Название
+            </th>
+            <th @click="updateSort('height')"
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+              Высота
+            </th>
+            <th @click="updateSort('ridge')"
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+              Хребет
+            </th>
+            <th @click="updateSort('visitors')"
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+              Восходителей
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="summit in filteredSummits" :key="summit.id" class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <router-link :to="{ name: 'summit', params: { ridge_id: summit.ridge_id, summit_id: summit.id } }"
+                class="text-blue-600 hover:text-blue-800" :class="{ 'font-bold': summit.is_main }">
+                {{ summit.name ? summit.name : summit.height }}
+              </router-link>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span :class="{ 'font-bold': summit.is_main }">{{ summit.height }}</span>
+              <span v-if="summit.rank" class="text-xs text-gray-500 ml-1">{{ summit.rank }}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-gray-900">
+              {{ summit.ridge }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-gray-900">
+              {{ summit.visitors }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
