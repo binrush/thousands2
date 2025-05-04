@@ -257,7 +257,6 @@ func NewApp(mockOauthProvider Provider, t *testing.T) *App {
 	app := &App{
 		Api:        api,
 		AuthServer: as,
-		UIDir:      "",
 		SM:         sm,
 		router:     chi.NewRouter(),
 	}

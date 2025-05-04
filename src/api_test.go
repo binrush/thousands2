@@ -61,7 +61,7 @@ func GetMockApp(t *testing.T, userId int64, config *RuntimeConfig) *App {
 	storage := NewStorage(db)
 	err := storage.LoadSummits(config.Datadir)
 	require.NoError(t, err)
-	return NewAppServer(config, storage, sm, "")
+	return NewAppServer(config, storage, sm)
 }
 
 func TestSummitsTableHandler(t *testing.T) {
