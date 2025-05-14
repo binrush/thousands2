@@ -85,7 +85,12 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expectedState := h.SM.Pop(r.Context(), OauthStateKey).(string)
+	expectedState, ok := h.SM.Pop(r.Context(), OauthStateKey).(string)
+	if !ok {
+		log.Printf("Error: OAuth state not found in session")
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
 	if expectedState != r.FormValue("state") {
 		log.Printf("Error checking state parameter: value not match")
 		http.Error(w, "Invalid request", http.StatusBadRequest)
