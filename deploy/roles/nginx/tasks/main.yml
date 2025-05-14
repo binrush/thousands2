@@ -1,0 +1,42 @@
+---
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Check if certbot has configured the site
+  stat:
+    path: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
+  register: certbot_config
+
+- name: Create initial Nginx configuration
+  template:
+    src: thousands2.conf.j2
+    dest: /etc/nginx/sites-available/thousands2
+    owner: root
+    group: root
+    mode: '0644'
+  when: not certbot_config.stat.exists
+
+- name: Enable Nginx site
+  file:
+    src: /etc/nginx/sites-available/thousands2
+    dest: /etc/nginx/sites-enabled/thousands2
+    state: link
+  when: not certbot_config.stat.exists
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Ensure Nginx is running
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Wait for Nginx to be ready
+  wait_for:
+    port: 80
+    timeout: 30 

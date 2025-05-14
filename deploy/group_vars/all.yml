@@ -1,0 +1,3 @@
+---
+# Certbot email for notifications
+certbot_email: rush.ru@gmail.com

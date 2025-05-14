@@ -1,0 +1,48 @@
+---
+- name: Create application user
+  user:
+    name: thousands2
+    system: yes
+    shell: /usr/sbin/nologin
+    home: /opt/thousands2
+
+- name: Create application directory
+  file:
+    path: /opt/thousands2
+    state: directory
+    owner: thousands2
+    group: thousands2
+    mode: '0755'
+
+- name: Clone thousands-data repository
+  git:
+    repo: 'https://github.com/binrush/thousands-data.git'
+    dest: /opt/thousands2/thousands-data
+    version: master
+  become_user: thousands2
+  environment:
+    HOME: /opt/thousands2
+
+- name: Copy application binary
+  copy:
+    src: "../../../dist/thousands2"
+    dest: /opt/thousands2/
+    owner: thousands2
+    group: thousands2
+    mode: '0755'
+
+- name: Create systemd service
+  template:
+    src: thousands2.service.j2
+    dest: /etc/systemd/system/thousands2.service
+    mode: '0644'
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Enable and start service
+  systemd:
+    name: thousands2
+    state: started
+    enabled: yes 

@@ -1,0 +1,18 @@
+[Unit]
+Description=Thousands2 Application
+After=network.target
+
+[Service]
+Type=simple
+User=thousands2
+Group=thousands2
+WorkingDirectory=/opt/thousands2
+Environment="BASE_URL=https://{{ domain_name }}"
+Environment="VK_CLIENT_ID={{ vk_client_id }}"
+Environment="VK_CLIENT_SECRET={{ vk_client_secret }}"
+ExecStart=/opt/thousands2/thousands2 /opt/thousands2/thousands-data/data /opt/thousands2/thousands.db
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target 
