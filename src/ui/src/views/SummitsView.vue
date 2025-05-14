@@ -121,6 +121,7 @@ watch(
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
+            <th class="w-10"></th>
             <th @click="updateSort('name')"
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
               Название
@@ -141,9 +142,18 @@ watch(
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr v-for="summit in filteredSummits" :key="summit.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap">
-              <router-link :to="{ name: 'summit', params: { ridge_id: summit.ridge_id, summit_id: summit.id } }"
-                class="text-blue-600 hover:text-blue-800" :class="{ 'font-bold': summit.is_main }">
+            <td class="text-center">
+              <svg v-if="summit.climbed" class="w-5 h-5 mx-auto" viewBox="0 0 24 24" fill="black" xmlns="http://www.w3.org/2000/svg">
+                <rect x="7" y="4" width="2" height="16" />
+                <path d="M9 4 L20 9 L9 14 Z" />
+              </svg>
+            </td>
+            <td class="pr-6 py-4 whitespace-nowrap">
+              <router-link
+                :to="{ name: 'summit', params: { ridge_id: summit.ridge_id, summit_id: summit.id } }"
+                class="text-blue-600 hover:text-blue-800"
+                :class="{ 'font-bold': summit.is_main }"
+              >
                 {{ summit.name ? summit.name : summit.height }}
               </router-link>
             </td>

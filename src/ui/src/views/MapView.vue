@@ -30,14 +30,14 @@ async function loadMarkers(map) {
     const regularMarkerSvg = `
         <svg width="17" height="25" viewBox="0 0 17 25" xmlns="http://www.w3.org/2000/svg">
             <path d="M8.5 0C3.8 0 0 3.8 0 8.5c0 5.2 8.5 16.5 8.5 16.5s8.5-11.3 8.5-16.5c0-4.7-3.8-8.5-8.5-8.5z" fill="{color}" stroke="white" stroke-width="1.2"/>
-            <circle cx="8.5" cy="8.5" r="3.5" fill="white"/>
+            {centerpiece}
         </svg>
     `;
     
     const mainMarkerSvg = `
         <svg width="22" height="34" viewBox="0 0 22 34" xmlns="http://www.w3.org/2000/svg">
             <path d="M11 0C4.9 0 0 4.9 0 11c0 6.7 11 23 11 23s11-16.3 11-23c0-6.1-4.9-11-11-11z" fill="{color}" stroke="white" stroke-width="1.5"/>
-            <circle cx="11" cy="11" r="4.5" fill="white"/>
+            {centerpiece}
         </svg>
     `;
     
@@ -47,9 +47,34 @@ async function loadMarkers(map) {
         const color = summit.color ? `#${summit.color}` : '#888888';
         const isMainPeak = summit.is_main;
         
+        // For climbed summits, use a white flag instead of a circle
+        let centerpiece = '';
+        if (summit.climbed) {
+            if (isMainPeak) {
+                // Main marker: thinner pole
+                centerpiece = `<g>
+                    <rect x="9" y="6" width="2.2" height="15" fill="white"/>
+                    <path d="M11 6.5 L18 11 L11 15.5 Z" fill="white"/>
+                </g>`;
+            } else {
+                // Regular marker: thinner pole
+                centerpiece = `<g>
+                    <rect x="7" y="4.5" width="1.4" height="10" fill="white"/>
+                    <path d="M8.5 5 L14 8 L8.5 11 Z" fill="white"/>
+                </g>`;
+            }
+        } else {
+            // Not climbed: use the original white circle
+            centerpiece = isMainPeak
+                ? '<circle cx="11" cy="11" r="4.5" fill="white"/>'
+                : '<circle cx="8.5" cy="8.5" r="3.5" fill="white"/>';
+        }
+        
         // Choose the appropriate SVG template
         const svgTemplate = isMainPeak ? mainMarkerSvg : regularMarkerSvg;
-        const markerSvg = svgTemplate.replace('{color}', color);
+        const markerSvg = svgTemplate
+            .replace('{color}', color)
+            .replace('{centerpiece}', centerpiece);
         
         // Create a DOM element for the marker
         const el = document.createElement('div');
