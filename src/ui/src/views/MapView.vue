@@ -5,8 +5,8 @@
 <script setup>
 import mapboxgl from 'mapbox-gl';
 import MapboxLanguage from '@mapbox/mapbox-gl-language';
-import { ref, onMounted, defineOptions } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, defineOptions, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 // Specify layout to use
 defineOptions({
@@ -14,6 +14,31 @@ defineOptions({
 })
 
 const router = useRouter()
+const route = useRoute()
+let mapInstance = null
+
+function updateUrlFromMap(map) {
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    router.replace({
+        query: {
+            ...route.query,
+            lat: center.lat.toFixed(5),
+            lng: center.lng.toFixed(5),
+            zoom: zoom.toFixed(2)
+        }
+    });
+}
+
+function setMapViewFromRoute(map, route) {
+    const lat = parseFloat(route.query.lat);
+    const lng = parseFloat(route.query.lng);
+    const zoom = parseFloat(route.query.zoom);
+    if (!isNaN(lat) && !isNaN(lng) && !isNaN(zoom)) {
+        map.setCenter([lng, lat]);
+        map.setZoom(zoom);
+    }
+}
 
 async function loadMarkers(map) {
     // Wait for map to be fully loaded
@@ -127,8 +152,11 @@ function createMap() {
     var map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/mapbox/outdoors-v12',
-        center: [59.041, 54.480],
-        zoom: 8
+        center: [
+            route.query.lng ? parseFloat(route.query.lng) : 59.041,
+            route.query.lat ? parseFloat(route.query.lat) : 54.480
+        ],
+        zoom: route.query.zoom ? parseFloat(route.query.zoom) : 8
     });
     const language = new MapboxLanguage({
         defaultLanguage: 'ru'
@@ -138,9 +166,36 @@ function createMap() {
 }
 
 onMounted(() => {
-    let map = createMap()
-    loadMarkers(map)
-})
+    let map = createMap();
+    mapInstance = map;
+    loadMarkers(map);
+    updateUrlFromMap(map);
+    map.on('moveend', () => {
+        updateUrlFromMap(map);
+    });
+    map.on('zoomend', () => {
+        updateUrlFromMap(map);
+    });
+});
+
+watch(
+    () => [route.query.lat, route.query.lng, route.query.zoom],
+    ([lat, lng, zoom], [prevLat, prevLng, prevZoom]) => {
+        if (mapInstance && (lat !== prevLat || lng !== prevLng || zoom !== prevZoom)) {
+            setMapViewFromRoute(mapInstance, route);
+        }
+    }
+);
+
+// Watch for route changes to update the URL if needed (fix for menu click)
+watch(
+    () => route.fullPath,
+    () => {
+        if (mapInstance) {
+            updateUrlFromMap(mapInstance);
+        }
+    }
+);
 </script>
 
 <style scoped>

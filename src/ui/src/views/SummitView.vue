@@ -98,9 +98,21 @@ watch(() => route.params, () => {
             </div>
 
             <div class="mt-2">
-              <span class="text-gray-700">
+              <RouterLink
+                v-if="summit.coordinates"
+                :to="{
+                  name: 'map',
+                  query: {
+                    lat: summit.coordinates[0],
+                    lng: summit.coordinates[1],
+                    zoom: 12
+                  }
+                }"
+                class="text-blue-600 hover:text-blue-800 underline"
+                title="Показать на карте"
+              >
                 {{ summit.coordinates[0] }}, {{ summit.coordinates[1] }}
-              </span>
+              </RouterLink>
             </div>
 
             <div v-if="summit.interpretation" class="mt-4 prose max-w-none" v-html="summit.interpretation"></div>
