@@ -21,8 +21,12 @@
           <button
             v-if="item.type === 'page'"
             @click="handlePageChange(item.value)"
-            class="w-10 h-10 mx-1 transition-colors duration-300 transform bg-white rounded-md sm:inline hover:bg-blue-500 hover:text-white flex items-center justify-center"
-            :class="currentPage === item.value ? 'bg-blue-500 text-white' : 'text-gray-700'"
+            :class="[
+              'w-10 h-10 mx-1 transition-colors duration-300 transform rounded-md sm:inline flex items-center justify-center',
+              currentPage === item.value 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-white text-gray-700 hover:bg-blue-500 hover:text-white'
+            ]"
           >
             {{ item.value }}
           </button>
