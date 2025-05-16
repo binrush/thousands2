@@ -18,6 +18,14 @@ const error = ref(null)
 const totalClimbs = ref(0)
 const climbersSection = ref(null)
 
+// Watch for summit data changes to update page title
+watch(summit, (newSummit) => {
+  if (newSummit) {
+    const title = newSummit.name || newSummit.height
+    document.title = `${title}, хр. ${newSummit.ridge.name} | Тысячники Южного Урала`
+  }
+}, { immediate: true })
+
 // Declare fetchClimbs first before using it in usePagination
 async function fetchClimbs(page = 1) {
   try {

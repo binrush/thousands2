@@ -27,7 +27,7 @@ const router = createRouter({
       path: '/top',
       name: 'top',
       component: TopView,
-      meta: { title: 'Топ альпинистов' }
+      meta: { title: 'Рейтинг восходителей' }
     },
     {
       path: '/about',
@@ -74,7 +74,7 @@ router.beforeEach(async (to, from, next) => {
   const { fetchAuthStatus, authState } = useAuth()
   
   // Update document title
-  document.title = to.meta.title ? `${to.meta.title} | 1000+` : '1000+'
+  document.title = to.meta.title ? `${to.meta.title} | Тысячники Южного Урала` : 'Тысячники Южного Урала'
   
   // Ensure auth state is initialized
   if (!authState.isInitialized) {

@@ -17,6 +17,13 @@ const isLoading = ref(true)
 const error = ref(null)
 const route = useRoute()
 
+// Watch for user data changes to update page title
+watch(user, (newUser) => {
+  if (newUser) {
+    document.title = `${newUser.name} | Тысячники Южного Урала`
+  }
+}, { immediate: true })
+
 async function loadUser() {
   try {
     isLoading.value = true
