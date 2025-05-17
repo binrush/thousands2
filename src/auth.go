@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,7 @@ import (
 const (
 	UserIdKey      = "UserId"
 	OauthStateKey  = "OauthState"
+	RedirectKey    = "Redirect"
 	OauthStateSize = 16
 )
 
@@ -61,6 +63,18 @@ func (h *AuthServer) handleOAuthRedirect(w http.ResponseWriter, r *http.Request)
 	if h.SM.GetInt64(r.Context(), UserIdKey) != 0 { // user already logged in
 		http.Redirect(w, r, "/user/me", http.StatusTemporaryRedirect)
 		return
+	}
+
+	// Store the redirect URL from Referer header if available
+	if referer := r.Header.Get("Referer"); referer != "" {
+		// Parse the referer URL to get just the path and query
+		if refererURL, err := url.Parse(referer); err == nil {
+			redirectPath := refererURL.Path
+			if refererURL.RawQuery != "" {
+				redirectPath += "?" + refererURL.RawQuery
+			}
+			h.SM.Put(r.Context(), RedirectKey, redirectPath)
+		}
 	}
 
 	oauthState := GenerateRandomString(OauthStateSize)
@@ -134,7 +148,14 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.SM.Put(r.Context(), UserIdKey, userId)
-	http.Redirect(w, r, "/user/me", http.StatusTemporaryRedirect)
+
+	// Get the redirect URL from session, default to /user/me if not set
+	redirectURL := "/user/me"
+	if storedRedirect, ok := h.SM.Pop(r.Context(), RedirectKey).(string); ok && storedRedirect != "" {
+		redirectURL = storedRedirect
+	}
+
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
 func (h *AuthServer) handleLogout(w http.ResponseWriter, r *http.Request) {
