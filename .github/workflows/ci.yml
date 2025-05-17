@@ -62,7 +62,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install ansible
 
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
       - name: Create vault password script
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: |
           touch vault_pass.txt
           chmod 600 vault_pass.txt
@@ -70,10 +78,10 @@ jobs:
 
       - name: Deploy with Ansible
         working-directory: deploy
-        env:
-          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: ansible-playbook -i inventory/hosts deploy.yml --vault-password-file vault_pass.txt
 
       - name: Cleanup
         if: always()
-        run: rm -f vault_pass.txt 
+        run: |
+          rm -f vault_pass.txt
+          rm -f ~/.ssh/id_ed25519 
