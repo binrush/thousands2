@@ -66,14 +66,13 @@ jobs:
         run: |
           touch vault_pass.txt
           chmod 600 vault_pass.txt
-          echo "$ANSIBLE_VAULT_PASSWORD" > vault_pass.txt
+          echo "$ANSIBLE_VAULT_PASSWORD" > deploy/vault_pass.txt
 
       - name: Deploy with Ansible
         working-directory: deploy
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: |
-          ansible-playbook -i inventory/hosts deploy.yml --vault-password-file vault_pass.txt
+        run: ansible-playbook -i inventory/hosts deploy.yml --vault-password-file vault_pass.txt
 
       - name: Cleanup
         if: always()
