@@ -10,3 +10,8 @@
       - git
     state: present
 
+- name: Add GitHub Actions public key
+  ansible.posix.authorized_key:
+    user: "{{ ansible_user }}"
+    state: present
+    key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK6KClPGKeWGiglv07e4TNdTNiJTP5JyOYtaJrNC13iK github-actions-deploy"

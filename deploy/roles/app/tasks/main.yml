@@ -30,12 +30,14 @@
     owner: thousands2
     group: thousands2
     mode: '0755'
+  notify: restart thousands2
 
 - name: Create systemd service
   template:
     src: thousands2.service.j2
     dest: /etc/systemd/system/thousands2.service
     mode: '0644'
+  notify: restart thousands2
 
 - name: Reload systemd
   systemd:

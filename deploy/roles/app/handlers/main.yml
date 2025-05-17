@@ -1,0 +1,5 @@
+---
+- name: restart thousands2
+  systemd:
+    name: thousands2
+    state: restarted 
