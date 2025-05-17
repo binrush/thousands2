@@ -17,6 +17,10 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Create UI dist placeholder
+        working-directory: src/ui
+        run: mkdir -p dist
+
       - name: Run Go tests
         working-directory: src
         run: go test -v ./...
