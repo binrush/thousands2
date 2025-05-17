@@ -17,6 +17,8 @@ const isLoadingClimbs = ref(false)
 const error = ref(null)
 const totalClimbs = ref(0)
 const climbersSection = ref(null)
+const showCommentModal = ref(false)
+const selectedComment = ref(null)
 
 // Watch for summit data changes to update page title
 watch(summit, (newSummit) => {
@@ -77,6 +79,16 @@ watch(() => route.params, () => {
   // Also fetch climb data
   fetchClimbs(currentPage.value)
 }, { immediate: true })
+
+const openCommentModal = (climb) => {
+  selectedComment.value = climb
+  showCommentModal.value = true
+}
+
+const closeCommentModal = () => {
+  showCommentModal.value = false
+  selectedComment.value = null
+}
 </script>
 
 <template>
@@ -196,8 +208,16 @@ watch(() => route.params, () => {
               </RouterLink>
 
               <div class="text-sm mt-1">
-                <div v-if="climb.date" class="text-gray-500">{{ formatRussianDate(climb.date) }}</div>
-                <div v-if="climb.comment" class="mt-1 line-clamp-2">{{ climb.comment }}</div>
+                <div v-if="climb.date" 
+                     class="text-gray-500 cursor-pointer hover:text-blue-600"
+                     @click="openCommentModal(climb)">
+                  {{ formatRussianDate(climb.date) }}
+                </div>
+                <div v-if="climb.comment" 
+                     class="mt-1 line-clamp-2 cursor-pointer hover:text-blue-600"
+                     @click="openCommentModal(climb)">
+                  {{ climb.comment }}
+                </div>
               </div>
             </div>
           </div>
@@ -209,6 +229,45 @@ watch(() => route.params, () => {
         <Pagination :current-page="currentPage" :total-pages="totalPages" @page-change="handlePageChange" />
       </div>
     </div>
+
+    <!-- Comment Modal -->
+    <teleport to="body">
+      <div v-if="showCommentModal"
+           class="fixed top-0 left-0 w-screen h-screen bg-black bg-opacity-50 flex items-center justify-center z-50"
+           @click="closeCommentModal">
+        <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4" @click.stop>
+          <div class="flex justify-between items-start mb-4">
+            <div class="flex items-center space-x-3">
+              <img v-if="selectedComment?.user_image" 
+                   :src="getImageUrl(selectedComment.user_image)" 
+                   :alt="selectedComment?.user_name"
+                   class="h-12 w-12 rounded-full object-cover">
+              <img v-else 
+                   src="/climber_no_photo.svg" 
+                   :alt="selectedComment?.user_name" 
+                   class="h-12 w-12 rounded-full">
+              <div>
+                <h3 class="text-lg font-medium text-gray-900">
+                  {{ selectedComment?.user_name }}
+                </h3>
+                <div v-if="selectedComment?.date" class="text-sm text-gray-500">
+                  {{ formatRussianDate(selectedComment.date) }}
+                </div>
+              </div>
+            </div>
+            <button @click="closeCommentModal" class="text-gray-400 hover:text-gray-500">
+              <span class="sr-only">Закрыть</span>
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div v-if="selectedComment?.comment" class="text-gray-700 whitespace-pre-wrap">
+            {{ selectedComment.comment }}
+          </div>
+        </div>
+      </div>
+    </teleport>
   </div>
 </template>
 
