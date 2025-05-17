@@ -65,7 +65,7 @@ jobs:
       - name: Deploy with Ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: false
-          # Add your deployment-specific environment variables here
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: |
           cd deploy
           ansible-playbook -i inventory/hosts deploy.yml 
