@@ -19,7 +19,9 @@ jobs:
 
       - name: Create UI dist placeholder
         working-directory: src/ui
-        run: mkdir -p dist
+        run: |
+          mkdir -p dist
+          echo "placeholder" > dist/index.html
 
       - name: Run Go tests
         working-directory: src
