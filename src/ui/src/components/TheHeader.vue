@@ -40,9 +40,37 @@
                 <a href="/auth/logout" class="px-3 py-2 mx-3 text-gray-700 transition-colors duration-300 transform rounded-md dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Выйти</a>
               </div>
             </template>
-            <a v-else href="/auth/oauth/vk" class="px-6 py-2 mx-3 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80">
-              Войти через VK
-            </a>
+            <template v-else>
+              <div class="relative" @keydown.esc="showLoginDropdown = false">
+                <button
+                  @click="toggleLoginDropdown"
+                  class="px-4 py-2 mx-3 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-blue-600 rounded-lg hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80"
+                  type="button"
+                >
+                 Вход 
+                  <svg class="inline w-4 h-4 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+                <div
+                  v-if="showLoginDropdown"
+                  class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50"
+                >
+                  <a
+                    href="/auth/oauth/vk"
+                    class="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700 transition"
+                  >
+                    Войти через VK
+                  </a>
+                  <a
+                    href="/auth/oauth/su"
+                    class="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-green-50 dark:hover:bg-gray-700 transition"
+                  >
+                    Войти через southural.ru
+                  </a>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -51,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref, inject } from 'vue'
+import { ref, inject, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getImageUrl } from '../utils/images'
 
@@ -61,4 +89,24 @@ const isMobileMenuOpen = ref(false)
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value
 }
+
+const showLoginDropdown = ref(false)
+const toggleLoginDropdown = () => {
+  showLoginDropdown.value = !showLoginDropdown.value
+}
+
+function handleClickOutside(event) {
+  // Only close if click is outside any .relative (dropdown container)
+  if (!event.target.closest('.relative')) {
+    showLoginDropdown.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script> 

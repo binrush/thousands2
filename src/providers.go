@@ -16,6 +16,9 @@ import (
 
 const (
 	VKApiBaseUrl = "https://api.vk.com"
+	SUApiBaseUrl = "https://www.southural.ru/oauth2/"
+	AuthSrcVK    = 1
+	AuthSrcSU    = 2
 )
 
 type Provider interface {
@@ -152,6 +155,64 @@ func downloadImage(client http.Client, url string) ([]byte, error) {
 	*/
 }
 
+type SUAuthProvider struct {
+	config *oauth2.Config
+}
+
+func (p *SUAuthProvider) GetConfig() *oauth2.Config {
+	return p.config
+}
+
+func (p *SUAuthProvider) GetSrcId() int {
+	return AuthSrcSU
+}
+
+func (p *SUAuthProvider) fetchUserInfo(token *oauth2.Token, ctx context.Context) (map[string]interface{}, error) {
+	oauthClient := p.GetConfig().Client(ctx, token)
+	resp, err := oauthClient.Get(SUApiBaseUrl + "UserInfo")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user info from SU: %v", err)
+	}
+	defer resp.Body.Close()
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, fmt.Errorf("failed to decode SU user info: %v", err)
+	}
+	if errVal, ok := data["error"]; ok {
+		return nil, fmt.Errorf("error in SU user info: %v", errVal)
+	}
+	return data, nil
+}
+
+func (p *SUAuthProvider) GetUserId(token *oauth2.Token) (string, error) {
+	data, err := p.fetchUserInfo(token, context.Background())
+	if err != nil {
+		return "", err
+	}
+	sub, ok := data["sub"].(string)
+	if !ok {
+		return "", fmt.Errorf("missing 'sub' in SU user info")
+	}
+	return sub, nil
+}
+
+func (p *SUAuthProvider) Register(token *oauth2.Token, storage *Storage, ctx context.Context) (int64, error) {
+	data, err := p.fetchUserInfo(token, ctx)
+	if err != nil {
+		return 0, err
+	}
+	sub, ok := data["sub"].(string)
+	if !ok {
+		return 0, fmt.Errorf("missing 'sub' in SU user info")
+	}
+	name, _ := data["name"].(string)
+	userId, err := storage.CreateUser(name, sub, p.GetSrcId())
+	if err != nil {
+		return 0, err
+	}
+	return userId, nil
+}
+
 func GetAuthProviders(baseUrl string) AuthProviders {
 	providers := make(AuthProviders)
 	providers["vk"] = &VKProvider{
@@ -162,6 +223,18 @@ func GetAuthProviders(baseUrl string) AuthProviders {
 			Endpoint:     vk.Endpoint,
 		},
 		VKApiBaseUrl,
+	}
+	providers["su"] = &SUAuthProvider{
+		&oauth2.Config{
+			RedirectURL:  baseUrl + "/auth/authorized/su",
+			ClientID:     os.Getenv("SU_CLIENT_ID"),
+			ClientSecret: os.Getenv("SU_CLIENT_SECRET"),
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  SUApiBaseUrl + "authorize",
+				TokenURL: SUApiBaseUrl + "token",
+			},
+			Scopes: []string{"openid", "profile"},
+		},
 	}
 	return providers
 }
