@@ -33,7 +33,7 @@
             <template v-if="currentUser">
               <div class="flex items-center">
                 <RouterLink :to="'/user/me'" class="flex items-center focus:outline-none" aria-label="toggle profile dropdown">
-                  <div class="w-8 h-8 overflow-hidden border-2 border-gray-400 rounded-full">
+                  <div class="w-8 h-8 overflow-hidden rounded-full">
                     <img :src="getImageUrl(currentUser.image_s)" class="object-cover w-full h-full" alt="Avatar">
                   </div>
                 </RouterLink>
