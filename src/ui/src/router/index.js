@@ -13,15 +13,15 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'summits',
-      component: SummitsView,
-      meta: { title: 'Вершины' }
-    },
-    {
-      path: '/map',
       name: 'map',
       component: MapView,
       meta: { title: 'Карта', layout: 'MapLayout' }
+    },
+    {
+      path: '/summits',
+      name: 'summits',
+      component: SummitsView,
+      meta: { title: 'Вершины' }
     },
     {
       path: '/top',
