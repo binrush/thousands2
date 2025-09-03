@@ -4,18 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 /**
  * Composable for handling pagination with URL query parameters
  * @param {Function} fetchFunction - Function to call when page changes
- * @param {Object} options - Configuration options
  * @returns {Object} Pagination state and handlers
  */
-export function usePagination(fetchFunction, options = {}) {
+export function usePagination(fetchFunction) {
   const route = useRoute()
   const router = useRouter()
-  
-  // Default options
-  const { 
-    scrollRef = null,
-    preserveScroll = true
-  } = options
   
   const currentPage = ref(parseInt(route.query.page) || 1)
   const totalPages = ref(1)
@@ -32,13 +25,7 @@ export function usePagination(fetchFunction, options = {}) {
   // Handle page change
   const handlePageChange = (page) => {
     if (currentPage.value === page) return
-    
-    // Capture current scroll position if preserveScroll is enabled
-    let currentScrollPos = 0
-    if (preserveScroll && scrollRef?.value) {
-      currentScrollPos = scrollRef.value.getBoundingClientRect().top + window.scrollY
-    }
-    
+        
     // Update URL with the new page
     const query = { ...route.query }
     if (page === 1) {
@@ -60,16 +47,6 @@ export function usePagination(fetchFunction, options = {}) {
     // Update page and fetch data
     currentPage.value = page
     fetchFunction(page)
-    
-    // Restore scroll position after data is loaded
-    if (preserveScroll && scrollRef?.value) {
-      setTimeout(() => {
-        window.scrollTo({
-          top: currentScrollPos,
-          behavior: 'auto'
-        })
-      }, 100)
-    }
   }
   
   return {

@@ -53,10 +53,7 @@ async function fetchClimbs(page = 1) {
 }
 
 // Now use our pagination composable
-const { currentPage, totalPages, handlePageChange } = usePagination(fetchClimbs, {
-  scrollRef: climbersSection,
-  preserveScroll: true
-})
+const { currentPage, totalPages, handlePageChange } = usePagination(fetchClimbs)
 
 // Initial data fetch to get summit details
 const fetchSummitDetails = async () => {
@@ -72,13 +69,11 @@ const fetchSummitDetails = async () => {
   }
 }
 
-// Watch for route changes to reset pagination and fetch data
-watch(() => route.params, () => {
-  // Fetch summit details whenever the route params change
+// Initial fetch on mount
+onMounted(() => {
   fetchSummitDetails()
-  // Also fetch climb data
   fetchClimbs(currentPage.value)
-}, { immediate: true })
+})
 
 const openCommentModal = (climb) => {
   selectedComment.value = climb
@@ -183,11 +178,7 @@ const closeCommentModal = () => {
 
       <!-- Fixed height container to prevent layout shifts -->
       <div class="min-h-[400px]">
-        <div v-if="isLoadingClimbs" class="flex justify-center py-8">
-          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-        </div>
-
-        <div v-else-if="climbs.length === 0" class="text-center text-gray-500 py-4">
+        <div v-if="climbs.length === 0" class="text-center text-gray-500 py-4">
           Пока никто не зарегистрировал восхождение
         </div>
 
