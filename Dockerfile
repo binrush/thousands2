@@ -1,6 +1,8 @@
 # Use Debian 12 as base image
 FROM debian:12
 
+ENV GOVERSION=1.25.0
+
 # Install dependencies: Go, Node.js 18, curl, and build essentials
 RUN apt-get update && apt-get install -y \
     curl \
@@ -9,9 +11,9 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
-    && curl -LO https://go.dev/dl/go1.20.14.linux-amd64.tar.gz \
-    && tar -C /usr/local -xzf go1.20.14.linux-amd64.tar.gz \
-    && rm go1.20.14.linux-amd64.tar.gz \
+    && curl -LO https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go${GOVERSION}.linux-amd64.tar.gz \
+    && rm go${GOVERSION}.linux-amd64.tar.gz \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/usr/local/go/bin:$PATH"
