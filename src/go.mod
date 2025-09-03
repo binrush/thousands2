@@ -1,13 +1,15 @@
 module github.com/binrush/thousands2
 
-go 1.20
+go 1.23.0
+
+toolchain go1.23.2
 
 require (
 	github.com/alexedwards/scs/v2 v2.5.0
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/oauth2 v0.18.0
+	golang.org/x/oauth2 v0.30.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
