@@ -141,7 +141,7 @@ const closeCommentModal = () => {
               </RouterLink>
               <div v-else>
                 <div class="text-gray-700 mb-2">
-                  <div class="font-medium">Вы взошли на эту вершину</div>
+                  <div class="text-lg font-medium text-gray-900">Вы взошли на эту вершину</div>
                   <div v-if="summit.climb_data.date" class="text-sm text-gray-500">
                     {{ formatRussianDate(summit.climb_data.date) }}
                   </div>
