@@ -7,7 +7,7 @@ Type=simple
 User=thousands2
 Group=thousands2
 WorkingDirectory=/opt/thousands2
-Environment="BASE_URL=https://{{ domain_name }}"
+Environment="BASE_URL=http{{ "s" if enable_ssl|bool else "" }}://{{ domain_name }}"
 Environment="VK_CLIENT_ID={{ vk_client_id }}"
 Environment="VK_CLIENT_SECRET={{ vk_client_secret }}"
 Environment="SU_CLIENT_ID={{ su_client_id }}"

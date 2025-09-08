@@ -16,7 +16,12 @@ This directory contains Ansible playbooks for deploying the Thousands2 applicati
    - Replace `your.domain.com` with your domain name
    - Set your VK client ID
 
-2. Set up secrets:
+2. Configure SSL (optional):
+   - Edit `group_vars/all.yml` to set `enable_ssl: false` if you want to disable SSL
+   - By default, SSL is enabled and managed by Certbot
+   - When SSL is disabled, the application will run on HTTP only
+
+3. Set up secrets:
    ```bash
    # Create host-specific vault files
    ansible-vault create host_vars/alpha.yml
@@ -61,14 +66,15 @@ This directory contains Ansible playbooks for deploying the Thousands2 applicati
 ## Security
 
 - The application runs as a non-root user `thousands2`
-- SSL certificates are automatically managed by Certbot
+- SSL certificates are automatically managed by Certbot (when enabled)
 - OAuth credentials are passed via environment variables
 - Automatic security updates are enabled
 - Sensitive variables are encrypted using Ansible Vault
 - Each host can have its own OAuth secret
+- SSL can be disabled by setting `enable_ssl: false` in `group_vars/all.yml`
 
 ## Maintenance
 
-- SSL certificates are automatically renewed
+- SSL certificates are automatically renewed (when SSL is enabled)
 - The application automatically restarts on failure
 - Logs can be viewed with `journalctl -u thousands2` 

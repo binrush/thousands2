@@ -1,3 +1,6 @@
 ---
-# Certbot email for notifications
+# SSL Configuration
+enable_ssl: true
+
+# Certbot email for notifications (only used if SSL is enabled)
 certbot_email: rush.ru@gmail.com
