@@ -365,3 +365,165 @@ func TestSummitDeleteHandlerUnauthenticated(t *testing.T) {
 	app.router.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusUnauthorized, rr.Code, "handler returned wrong status code")
 }
+
+func TestLegacyIdsConflict(t *testing.T) {
+	db := MockDatabase(t)
+	storage := NewStorage(db)
+	err := storage.LoadSummits("testdata/summits_legacy")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate legacy id")
+}
+
+func TestLegacyIdsSuccessAndRedirect(t *testing.T) {
+	// Поднимаем приложение поверх датасета с корректными legacy id
+	conf := &RuntimeConfig{Datadir: "testdata/summits_legacy_ok"}
+	app := GetMockApp(t, 0, conf)
+
+	type summitResp struct {
+		Id     string `json:"id"`
+		Height int    `json:"height"`
+		Ridge  struct {
+			Id   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"ridge"`
+	}
+
+	clientCases := []struct {
+		name           string
+		path           string
+		expectedCode   int
+		expectedId     string
+		expectedHeight int
+	}{
+		{"legacy #1", "/api/summit/ridge1/peak-old", http.StatusOK, "peak-new", 1500},
+		{"legacy #2", "/api/summit/ridge1/peak-veryold", http.StatusOK, "peak-new", 1500},
+		{"current id", "/api/summit/ridge1/peak-new", http.StatusOK, "peak-new", 1500},
+		{"unknown id", "/api/summit/ridge1/unknown-legacy", http.StatusNotFound, "", 0},
+	}
+
+	for _, cc := range clientCases {
+		t.Run(cc.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			req, err := http.NewRequest("GET", cc.path, nil)
+			require.NoError(t, err)
+			app.router.ServeHTTP(rr, req)
+			assert.Equal(t, cc.expectedCode, rr.Code)
+			if cc.expectedCode == http.StatusOK {
+				var s summitResp
+				err = json.Unmarshal(rr.Body.Bytes(), &s)
+				require.NoError(t, err)
+				assert.Equal(t, cc.expectedId, s.Id)
+				assert.Equal(t, cc.expectedHeight, s.Height)
+				assert.Equal(t, "ridge1", s.Ridge.Id)
+			}
+		})
+	}
+}
+
+func TestLegacyIdsClimbsEndpoint(t *testing.T) {
+	// Без авторизации, просто чтение списка восхождений через legacy и новый id
+	conf := &RuntimeConfig{Datadir: "testdata/summits_legacy_ok", ItemsPerPage: 5}
+	app := GetMockApp(t, 0, conf)
+
+	cases := []struct {
+		name         string
+		path         string
+		expectedCode int
+	}{
+		{"legacy climbs", "/api/summit/ridge1/peak-old/climbs", http.StatusOK},
+		{"new climbs", "/api/summit/ridge1/peak-new/climbs", http.StatusOK},
+		{"unknown climbs", "/api/summit/ridge1/unknown-legacy/climbs", http.StatusNotFound},
+	}
+
+	type climbsResp struct {
+		Climbs      []interface{} `json:"climbs"`
+		TotalClimbs int           `json:"total_climbs"`
+		Page        int           `json:"page"`
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			req, err := http.NewRequest("GET", c.path, nil)
+			require.NoError(t, err)
+			app.router.ServeHTTP(rr, req)
+			assert.Equal(t, c.expectedCode, rr.Code)
+			if c.expectedCode == http.StatusOK {
+				var resp climbsResp
+				err = json.Unmarshal(rr.Body.Bytes(), &resp)
+				require.NoError(t, err)
+				// В тестовом наборе нет climbs, поэтому 0
+				assert.Equal(t, 0, resp.TotalClimbs)
+			}
+		})
+	}
+}
+
+func TestLegacyIdsPutAndDeleteViaLegacyId(t *testing.T) {
+	// Пользователь 5 (существует в mock-db) создаёт и удаляет восхождение через legacy id
+	conf := &RuntimeConfig{Datadir: "testdata/summits_legacy_ok"}
+	app := GetMockApp(t, 5, conf)
+
+	// PUT (создание) по legacy id
+	form := url.Values{}
+	form.Set("date", "01.2024")
+	form.Set("comment", "Test climb via legacy id")
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest("PUT", "/api/summit/ridge1/peak-old", strings.NewReader(form.Encode()))
+	require.NoError(t, err)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	app.router.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	// GET по новому id: должна быть climb_data
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest("GET", "/api/summit/ridge1/peak-new", nil)
+	require.NoError(t, err)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+	app.router.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var summitResp struct {
+		Id        string `json:"id"`
+		ClimbData *struct {
+			Comment string `json:"comment"`
+		} `json:"climb_data"`
+	}
+	err = json.Unmarshal(rr.Body.Bytes(), &summitResp)
+	require.NoError(t, err)
+	require.NotNil(t, summitResp.ClimbData)
+	assert.Equal(t, "peak-new", summitResp.Id)
+	assert.Equal(t, "Test climb via legacy id", summitResp.ClimbData.Comment)
+
+	// GET climbs по legacy id: теперь total_climbs = 1
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest("GET", "/api/summit/ridge1/peak-old/climbs", nil)
+	require.NoError(t, err)
+	app.router.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var climbsResp struct {
+		TotalClimbs int `json:"total_climbs"`
+	}
+	err = json.Unmarshal(rr.Body.Bytes(), &climbsResp)
+	require.NoError(t, err)
+	assert.Equal(t, 1, climbsResp.TotalClimbs)
+
+	// DELETE по legacy id
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest("DELETE", "/api/summit/ridge1/peak-old", nil)
+	require.NoError(t, err)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+	app.router.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	// Проверяем что climb_data исчезла
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest("GET", "/api/summit/ridge1/peak-new", nil)
+	require.NoError(t, err)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "mock_session_token"})
+	app.router.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	err = json.Unmarshal(rr.Body.Bytes(), &summitResp)
+	require.NoError(t, err)
+	assert.Nil(t, summitResp.ClimbData)
+}

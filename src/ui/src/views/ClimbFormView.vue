@@ -30,9 +30,13 @@ function formatDateToString(date) {
 
 async function fetchSummit() {
   try {
-    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}`)
+    const requestedId = route.params.summit_id
+    const response = await fetch(`/api/summit/${route.params.ridge_id}/${requestedId}`)
     if (!response.ok) throw new Error('Failed to fetch summit')
     summit.value = await response.json()
+    if (summit.value && summit.value.id && summit.value.id !== requestedId) {
+      router.replace({ name: 'edit_climb', params: { ridge_id: route.params.ridge_id, summit_id: summit.value.id } })
+    }
 
     // Initialize form data
     if (summit.value.climb_data) {
