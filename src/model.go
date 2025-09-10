@@ -329,6 +329,58 @@ func (s *Storage) LoadSummits(dataDir string) error {
 	if err != nil {
 		return err
 	}
+	// Собираем все основные id и все legacy id для проверки пересечений
+	mainIds := make(map[string]string)   // id -> ridge
+	legacyIds := make(map[string]string) // legacy_id -> ridge
+	for _, ridgeDir := range ridgeDirs {
+		if !ridgeDir.IsDir() {
+			continue
+		}
+		ridgeId := ridgeDir.Name()
+		if strings.HasPrefix(ridgeId, ".") {
+			continue
+		}
+		ridgePath := path.Join(dataDir, ridgeId)
+		summitFiles, err := os.ReadDir(ridgePath)
+		if err != nil {
+			return err
+		}
+		for _, sf := range summitFiles {
+			if sf.Name() == "_meta.yaml" || sf.IsDir() {
+				continue
+			}
+			summitId := strings.TrimSuffix(sf.Name(), ".yaml")
+			if _, exists := mainIds[summitId]; exists {
+				return fmt.Errorf("duplicate summit id '%s' in ridges '%s' and '%s'", summitId, mainIds[summitId], ridgeId)
+			}
+			mainIds[summitId] = ridgeId
+			summitData, err := os.ReadFile(path.Join(ridgePath, sf.Name()))
+			if err != nil {
+				return err
+			}
+			var summit Summit
+			err = yaml.Unmarshal(summitData, &summit)
+			if err != nil {
+				return err
+			}
+			for _, legacyId := range summit.LegacyIds {
+				if legacyId == "" || legacyId == summitId {
+					continue
+				}
+				if _, exists := legacyIds[legacyId]; exists {
+					return fmt.Errorf("duplicate legacy id '%s' in ridges '%s' and '%s'", legacyId, legacyIds[legacyId], ridgeId)
+				}
+				legacyIds[legacyId] = ridgeId
+			}
+		}
+	}
+	// Проверяем, что ни один legacy_id не совпадает с основным id другой вершины
+	for legacyId, ridgeL := range legacyIds {
+		if ridgeM, exists := mainIds[legacyId]; exists {
+			return fmt.Errorf("legacy id '%s' in ridge '%s' conflicts with main id in ridge '%s'", legacyId, ridgeL, ridgeM)
+		}
+	}
+	// После проверки — обычная загрузка
 	for _, ridgeDir := range ridgeDirs {
 		if !ridgeDir.IsDir() {
 			continue
