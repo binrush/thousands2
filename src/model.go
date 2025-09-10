@@ -129,6 +129,9 @@ type Summit struct {
 	Ridge          *Ridge        `json:"ridge"`
 	Images         []SummitImage `json:"images"`
 	ClimbData      *ClimbData    `json:"climb_data"`
+	// LegacyIds содержит старые идентификаторы вершины (использовались ранее в URL).
+	// Подгружается из YAML, но не экспортируется в публичное API JSON, чтобы не ломать клиентов.
+	LegacyIds []string `yaml:"legacy_ids" json:"-"`
 }
 
 func (s *Summit) JSON() ([]byte, error) {
@@ -218,7 +221,7 @@ func (s *Storage) LoadSummitImages(images []SummitImage, summitId string, tx *sq
 	return nil
 }
 
-func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
+func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx, legacyStmt *sql.Stmt) error {
 	summitFiles, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -257,6 +260,27 @@ func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 		if err != nil {
 			return err
 		}
+		// Insert legacy IDs if any
+		for _, legacyId := range summit.LegacyIds {
+			if legacyId == "" || legacyId == summit.Id {
+				continue
+			}
+			// explicit duplicate check to return human readable error
+			var existing string
+			errCheck := tx.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", legacyId).Scan(&existing)
+			switch errCheck {
+			case nil:
+				return fmt.Errorf("duplicate legacy id '%s' for summits '%s' and '%s'", legacyId, existing, summit.Id)
+			case sql.ErrNoRows:
+				// ok, proceed
+			default:
+				return fmt.Errorf("failed to check legacy id '%s': %v", legacyId, errCheck)
+			}
+			_, lerr := legacyStmt.Exec(legacyId, summit.Id)
+			if lerr != nil {
+				return fmt.Errorf("failed to insert legacy id %s for summit %s: %v", legacyId, summit.Id, lerr)
+			}
+		}
 		if len(summit.Images) > 0 {
 			err = s.LoadSummitImages(summit.Images, summit.Id, tx)
 			if err != nil {
@@ -281,6 +305,7 @@ func (s *Storage) LoadSummits(dataDir string) error {
 		"DELETE FROM summit_images",
 		"DELETE FROM summits",
 		"DELETE FROM ridges",
+		"DELETE FROM summit_ids_legacy",
 	}
 	for _, sql := range cleanupQueries {
 		_, err = tx.Exec(sql)
@@ -293,6 +318,12 @@ func (s *Storage) LoadSummits(dataDir string) error {
 		return err
 	}
 	defer ridgeStmt.Close()
+
+	legacyStmt, err := tx.Prepare("INSERT INTO summit_ids_legacy (legacy_id, summit_id) VALUES (?, ?)")
+	if err != nil {
+		return err
+	}
+	defer legacyStmt.Close()
 
 	ridgeDirs, err := os.ReadDir(dataDir)
 	if err != nil {
@@ -321,9 +352,16 @@ func (s *Storage) LoadSummits(dataDir string) error {
 			return err
 		}
 
-		if err = s.LoadRidge(ridgePath, ridge.Id, tx); err != nil {
+		if err = s.LoadRidge(ridgePath, ridge.Id, tx, legacyStmt); err != nil {
 			return err
 		}
+	}
+	// After loading summits and legacy mappings, update climbs referencing legacy ids
+	_, err = tx.Exec(`UPDATE climbs SET summit_id = (
+			SELECT summit_id FROM summit_ids_legacy sil WHERE sil.legacy_id = climbs.summit_id
+		) WHERE summit_id IN (SELECT legacy_id FROM summit_ids_legacy)`)
+	if err != nil {
+		return fmt.Errorf("failed to update climbs with legacy summit ids: %v", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return err
@@ -465,9 +503,28 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 		&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
 	)
 	if err == sql.ErrNoRows {
-		return nil, nil // summit not found
-	}
-	if err != nil {
+		// Try legacy id lookup
+		var newId string
+		lerr := s.db.Pool.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", summitId).Scan(&newId)
+		if lerr == sql.ErrNoRows {
+			return nil, nil // not found at all
+		}
+		if lerr != nil {
+			return nil, lerr
+		}
+		// Fetch again using newId
+		err = s.db.Pool.QueryRow(query, newId).Scan(&summit.Id,
+			&summit.Name, &summit.NameAlt, &summit.Interpretation,
+			&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
+			&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
+		)
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
 		return nil, err
 	}
 

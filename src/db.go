@@ -69,6 +69,16 @@ var migrations []Migration = []Migration{
 			)`,
 		},
 	},
+	{
+		"SummitLegacyIds",
+		[]string{
+			`CREATE TABLE summit_ids_legacy (
+				legacy_id TEXT NOT NULL PRIMARY KEY,
+				summit_id TEXT NOT NULL,
+				FOREIGN KEY (summit_id) REFERENCES summits(id)
+			)`,
+		},
+	},
 }
 
 func NewDatabase(path string) (*Database, error) {
