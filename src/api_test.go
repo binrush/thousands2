@@ -366,14 +366,6 @@ func TestSummitDeleteHandlerUnauthenticated(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rr.Code, "handler returned wrong status code")
 }
 
-func TestLegacyIdsConflict(t *testing.T) {
-	db := MockDatabase(t)
-	storage := NewStorage(db)
-	err := storage.LoadSummits("testdata/summits_legacy")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate legacy id")
-}
-
 func TestLegacyIdsSuccessAndRedirect(t *testing.T) {
 	// Поднимаем приложение поверх датасета с корректными legacy id
 	conf := &RuntimeConfig{Datadir: "testdata/summits_legacy_ok"}

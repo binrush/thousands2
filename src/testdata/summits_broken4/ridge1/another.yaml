@@ -1,0 +1,11 @@
+height: 1400
+coordinates:
+  - 55.1
+  - 60.2
+legacy_ids:
+  - peak-old # конфликт: тот же что у peak-new
+images: []
+name: Другая
+name_alt: null
+description: null
+interpretation: null

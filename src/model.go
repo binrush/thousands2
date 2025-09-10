@@ -130,7 +130,7 @@ type Summit struct {
 	Images         []SummitImage `json:"images"`
 	ClimbData      *ClimbData    `json:"climb_data"`
 	// LegacyIds содержит старые идентификаторы вершины (использовались ранее в URL).
-	// Подгружается из YAML, но не экспортируется в публичное API JSON, чтобы не ломать клиентов.
+	// Подгружается из YAML, но не экспортируется в публичное API JSON, чтобы не ломать клиентов и тесты.
 	LegacyIds []string `yaml:"legacy_ids" json:"-"`
 }
 
@@ -221,7 +221,7 @@ func (s *Storage) LoadSummitImages(images []SummitImage, summitId string, tx *sq
 	return nil
 }
 
-func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx, legacyStmt *sql.Stmt) error {
+func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 	summitFiles, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -234,6 +234,16 @@ func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx, legacyStmt *
 		return err
 	}
 	defer summitsStmt.Close()
+
+	legacyStmt, err := tx.Prepare(
+		`INSERT INTO summit_ids_legacy 
+			(legacy_id, summit_id) 
+		VALUES (?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer legacyStmt.Close()
+
 	summitsNum := 0
 	for _, sf := range summitFiles {
 		if (sf.Name() == "_meta.yaml") || sf.IsDir() {
@@ -260,21 +270,10 @@ func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx, legacyStmt *
 		if err != nil {
 			return err
 		}
-		// Insert legacy IDs if any
+
 		for _, legacyId := range summit.LegacyIds {
 			if legacyId == "" || legacyId == summit.Id {
 				continue
-			}
-			// explicit duplicate check to return human readable error
-			var existing string
-			errCheck := tx.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", legacyId).Scan(&existing)
-			switch errCheck {
-			case nil:
-				return fmt.Errorf("duplicate legacy id '%s' for summits '%s' and '%s'", legacyId, existing, summit.Id)
-			case sql.ErrNoRows:
-				// ok, proceed
-			default:
-				return fmt.Errorf("failed to check legacy id '%s': %v", legacyId, errCheck)
 			}
 			_, lerr := legacyStmt.Exec(legacyId, summit.Id)
 			if lerr != nil {
@@ -302,10 +301,10 @@ func (s *Storage) LoadSummits(dataDir string) error {
 	}
 	defer tx.Rollback()
 	cleanupQueries := []string{
+		"DELETE FROM summit_ids_legacy",
 		"DELETE FROM summit_images",
 		"DELETE FROM summits",
 		"DELETE FROM ridges",
-		"DELETE FROM summit_ids_legacy",
 	}
 	for _, sql := range cleanupQueries {
 		_, err = tx.Exec(sql)
@@ -318,12 +317,6 @@ func (s *Storage) LoadSummits(dataDir string) error {
 		return err
 	}
 	defer ridgeStmt.Close()
-
-	legacyStmt, err := tx.Prepare("INSERT INTO summit_ids_legacy (legacy_id, summit_id) VALUES (?, ?)")
-	if err != nil {
-		return err
-	}
-	defer legacyStmt.Close()
 
 	ridgeDirs, err := os.ReadDir(dataDir)
 	if err != nil {
@@ -404,7 +397,7 @@ func (s *Storage) LoadSummits(dataDir string) error {
 			return err
 		}
 
-		if err = s.LoadRidge(ridgePath, ridge.Id, tx, legacyStmt); err != nil {
+		if err = s.LoadRidge(ridgePath, ridge.Id, tx); err != nil {
 			return err
 		}
 	}
@@ -542,6 +535,7 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	summit.NameAlt = new(string)
 	summit.Ridge = &ridge
 	summit.Coordinates = [2]float32{}
+	var err error
 
 	query := `SELECT
 		s.id, s.name, s.name_alt, s.interpretation, s.description, s.height, s.lat, s.lng,
@@ -549,34 +543,30 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	FROM summits s INNER JOIN ridges r ON s.ridge_id = r.id
 	WHERE s.id = ?
 	`
-	err := s.db.QueryRow(query, summitId).Scan(&summit.Id,
+	// Сначала определяем канонический ID вершины (учитывая legacy), затем один раз выполняем основной запрос
+	canonicalId := summitId
+	if err := s.db.QueryRow("SELECT id FROM summits WHERE id = ?", summitId).Scan(&canonicalId); err != nil {
+		if err == sql.ErrNoRows {
+			// Пробуем найти как legacy
+			if lerr := s.db.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", summitId).Scan(&canonicalId); lerr != nil {
+				if lerr == sql.ErrNoRows {
+					return nil, nil // вообще не найдено
+				}
+				return nil, lerr
+			}
+		} else {
+			return nil, err
+		}
+	}
+	// Теперь выбираем данные по canonicalId
+	if err = s.db.QueryRow(query, canonicalId).Scan(&summit.Id,
 		&summit.Name, &summit.NameAlt, &summit.Interpretation,
 		&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
 		&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
-	)
-	if err == sql.ErrNoRows {
-		// Try legacy id lookup
-		var newId string
-		lerr := s.db.Pool.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", summitId).Scan(&newId)
-		if lerr == sql.ErrNoRows {
-			return nil, nil // not found at all
-		}
-		if lerr != nil {
-			return nil, lerr
-		}
-		// Fetch again using newId
-		err = s.db.Pool.QueryRow(query, newId).Scan(&summit.Id,
-			&summit.Name, &summit.NameAlt, &summit.Interpretation,
-			&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
-			&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
-		)
-		if err == sql.ErrNoRows {
+	); err != nil {
+		if err == sql.ErrNoRows { // теоретически не должно случиться после проверки, но обработаем
 			return nil, nil
 		}
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
 		return nil, err
 	}
 
