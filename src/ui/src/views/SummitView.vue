@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../auth'
 import { getImageUrl } from '../utils/images'
 import { formatRussianDate } from '../utils/dates'
@@ -8,6 +8,7 @@ import Pagination from '../components/Pagination.vue'
 import { usePagination } from '../composables/usePagination'
 
 const route = useRoute()
+const router = useRouter()
 const { authState } = useAuth()
 
 const summit = ref(null)
@@ -59,9 +60,14 @@ const { currentPage, totalPages, handlePageChange } = usePagination(fetchClimbs)
 const fetchSummitDetails = async () => {
   try {
     isLoading.value = true
-    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}`)
+    const requestedId = route.params.summit_id
+    const response = await fetch(`/api/summit/${route.params.ridge_id}/${requestedId}`)
     if (!response.ok) throw new Error('Failed to fetch summit')
     summit.value = await response.json()
+    // Если сервер вернул summit с другим ID - заменить URL (историю не засоряем)
+    if (summit.value && summit.value.id && summit.value.id !== requestedId) {
+      router.replace({ name: 'summit', params: { ridge_id: route.params.ridge_id, summit_id: summit.value.id } })
+    }
   } catch (err) {
     error.value = err.message
   } finally {
