@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/alexedwards/scs/sqlite3store"
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 )
@@ -125,6 +126,7 @@ func main() {
 	log.Printf("Summits data loaded")
 
 	sm := scs.New()
+	sm.Store = sqlite3store.New(db)
 
 	app := NewAppServer(conf, storage, sm)
 
