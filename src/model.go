@@ -194,10 +194,10 @@ type SummitClimb struct {
 }
 
 type Storage struct {
-	db *Database
+	db *sql.DB
 }
 
-func NewStorage(db *Database) *Storage {
+func NewStorage(db *sql.DB) *Storage {
 	return &Storage{db: db}
 }
 
@@ -272,7 +272,7 @@ func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 }
 
 func (s *Storage) LoadSummits(dataDir string) error {
-	tx, err := s.db.Pool.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
@@ -357,7 +357,7 @@ func (s *Storage) FetchSummits(userId int64) (*SummitsTable, error) {
 		GROUP BY s.id, s.name, s.height, s.lat, r.name
 		ORDER BY s.id
 	`
-	rows, err := s.db.Pool.Query(query, userId)
+	rows, err := s.db.Query(query, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func (s *Storage) FetchSummits(userId int64) (*SummitsTable, error) {
 
 func (s *Storage) FetchSummitImages(summit_id string) ([]SummitImage, error) {
 	query := `SELECT url, comment FROM summit_images WHERE summit_id = ?`
-	rows, err := s.db.Pool.Query(query, summit_id)
+	rows, err := s.db.Query(query, summit_id)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func (s *Storage) FetchSummitImages(summit_id string) ([]SummitImage, error) {
 func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]SummitClimb, int, error) {
 	totalClimbs := 0
 	countQuery := `SELECT COUNT(*) FROM climbs WHERE summit_id = ?`
-	err := s.db.Pool.QueryRow(countQuery, summitId).Scan(&totalClimbs)
+	err := s.db.QueryRow(countQuery, summitId).Scan(&totalClimbs)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -412,7 +412,7 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 		WHERE c.summit_id = ?
 		ORDER BY year ASC NULLS LAST, month ASC NULLS LAST, day ASC NULLS LAST
 		LIMIT ? OFFSET ?`
-	rows, err := s.db.Pool.Query(query, summitId, itemsPerPage, offset)
+	rows, err := s.db.Query(query, summitId, itemsPerPage, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -459,7 +459,7 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	FROM summits s INNER JOIN ridges r ON s.ridge_id = r.id
 	WHERE s.id = ?
 	`
-	err := s.db.Pool.QueryRow(query, summitId).Scan(&summit.Id,
+	err := s.db.QueryRow(query, summitId).Scan(&summit.Id,
 		&summit.Name, &summit.NameAlt, &summit.Interpretation,
 		&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
 		&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
@@ -479,7 +479,7 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 		climbQuery := `SELECT year, month, day, comment FROM climbs WHERE summit_id = ? AND user_id = ?`
 		var year, month, day sql.NullInt64
 		var comment sql.NullString
-		err := s.db.Pool.QueryRow(climbQuery, summit.Id, userId).Scan(&year, &month, &day, &comment)
+		err := s.db.QueryRow(climbQuery, summit.Id, userId).Scan(&year, &month, &day, &comment)
 		switch err {
 		case sql.ErrNoRows:
 			summit.ClimbData = nil
@@ -508,7 +508,7 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 func (s *Storage) FetchTop(page, itemsPerPage int) (*Top, error) {
 	var result Top
 	result.Page = page
-	tx, err := s.db.Pool.Begin()
+	tx, err := s.db.Begin()
 	defer tx.Commit()
 	query := `SELECT COUNT(DISTINCT user_id) 
         FROM users INNER JOIN climbs ON users.id=climbs.user_id`
@@ -556,11 +556,8 @@ func (s *Storage) FetchTop(page, itemsPerPage int) (*Top, error) {
 }
 
 func (s *Storage) CreateUser(Name, OauthId string, Src int) (int64, error) {
-	s.db.WriteLock.Lock()
-	defer s.db.WriteLock.Unlock()
-
 	query := "INSERT INTO users (name, oauth_id, src) VALUES (?, ?, ?)"
-	res, err := s.db.Pool.Exec(query, Name, OauthId, Src)
+	res, err := s.db.Exec(query, Name, OauthId, Src)
 	if err != nil {
 		return 0, err
 	}
@@ -594,22 +591,19 @@ func (s *Storage) getUser(row *sql.Row) (*User, error) {
 
 func (s *Storage) GetUserById(id int64) (*User, error) {
 	query := "SELECT id, name, oauth_id, src FROM users WHERE id=?"
-	return s.getUser(s.db.Pool.QueryRow(query, id))
+	return s.getUser(s.db.QueryRow(query, id))
 }
 
 func (s *Storage) GetUser(oauthId string, src int) (*User, error) {
 	query := "SELECT id, name, oauth_id, src FROM users WHERE oauth_id=? AND src=?"
-	return s.getUser(s.db.Pool.QueryRow(query, oauthId, src))
+	return s.getUser(s.db.QueryRow(query, oauthId, src))
 }
 
 func (s *Storage) UpdateUserImage(userId int64, size string, url string) error {
-	s.db.WriteLock.Lock()
-	defer s.db.WriteLock.Unlock()
-
 	query := `INSERT INTO user_images (user_id, size, url) VALUES (?, ?, ?)
 	ON CONFLICT (user_id, size) DO UPDATE SET url=excluded.url
 	`
-	_, err := s.db.Pool.Exec(query, userId, size, url)
+	_, err := s.db.Exec(query, userId, size, url)
 	if err != nil {
 		return err
 	}
@@ -619,7 +613,7 @@ func (s *Storage) UpdateUserImage(userId int64, size string, url string) error {
 func (s *Storage) GetUserImage(userId int64, size string) (string, error) {
 	query := "SELECT url FROM user_images WHERE user_id=? AND size=?"
 	var img string
-	row := s.db.Pool.QueryRow(query, userId, size)
+	row := s.db.QueryRow(query, userId, size)
 	err := row.Scan(&img)
 	if err == sql.ErrNoRows {
 		return "", nil
@@ -631,16 +625,13 @@ func (s *Storage) GetUserImage(userId int64, size string) (string, error) {
 }
 
 func (s *Storage) UpdateClimb(summitId string, userId int64, date InexactDate, comment string) error {
-	s.db.WriteLock.Lock()
-	defer s.db.WriteLock.Unlock()
-
 	query := `INSERT INTO climbs (
 		user_id, summit_id, year, month, day, comment
 	) VALUES (?, ?, ?, ?, ?, ?)
 	ON CONFLICT (user_id, summit_id) 
 	DO UPDATE SET year=excluded.year, month=excluded.month, day=excluded.day, comment=excluded.comment
 	`
-	_, err := s.db.Pool.Exec(
+	_, err := s.db.Exec(
 		query, userId, summitId,
 		toSqlNullInt64(date.Year), toSqlNullInt64(date.Month), toSqlNullInt64(date.Day), comment)
 	if err != nil {
@@ -650,11 +641,8 @@ func (s *Storage) UpdateClimb(summitId string, userId int64, date InexactDate, c
 }
 
 func (s *Storage) DeleteClimb(summitId string, userId int64) error {
-	s.db.WriteLock.Lock()
-	defer s.db.WriteLock.Unlock()
-
 	query := `DELETE FROM climbs WHERE summit_id = ? AND user_id = ?`
-	_, err := s.db.Pool.Exec(query, summitId, userId)
+	_, err := s.db.Exec(query, summitId, userId)
 	if err != nil {
 		return err
 	}
@@ -670,7 +658,7 @@ func (s *Storage) FetchUserClimbs(userId int64) ([]Summit, error) {
 			inner join ridges on summits.ridge_id = ridges.id 
 		where climbs.user_id = ?
 		order by year ASC NULLS LAST, month ASC NULLS LAST, day ASC NULLS LAST, summits.id ASC`
-	rows, err := s.db.Pool.Query(query, userId)
+	rows, err := s.db.Query(query, userId)
 	if err != nil {
 		return nil, err
 	}

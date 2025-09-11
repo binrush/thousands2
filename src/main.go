@@ -109,7 +109,7 @@ func main() {
 	}
 
 	log.Printf("Starting migrations...")
-	err = db.Migrate()
+	err = Migrate(db)
 	if err != nil {
 		log.Fatalf("Migrations failed: %v", err)
 	}

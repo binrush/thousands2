@@ -20,7 +20,7 @@ func TestLoadSummits(t *testing.T) {
 
 	for _, datadir := range cases {
 		db := MockDatabase(t)
-		defer db.Pool.Close()
+		defer db.Close()
 		storage := NewStorage(db)
 		err := storage.LoadSummits(datadir)
 		if err == nil {
@@ -28,7 +28,7 @@ func TestLoadSummits(t *testing.T) {
 		}
 		for _, tbl := range tables {
 			var numRows int
-			err := db.Pool.QueryRow("SELECT COUNT(*) FROM " + tbl).Scan(&numRows)
+			err := db.QueryRow("SELECT COUNT(*) FROM " + tbl).Scan(&numRows)
 			if err != nil {
 				t.Fatalf("Error running sql query: %v", err)
 			}

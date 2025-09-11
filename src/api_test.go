@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -35,11 +36,11 @@ func AreEqualJSON(s1, s2 string) (bool, error) {
 	return reflect.DeepEqual(o1, o2), nil
 }
 
-func MockDatabase(t *testing.T) *Database {
+func MockDatabase(t *testing.T) *sql.DB {
 	db, err := NewDatabase(":memory:")
 	require.NoError(t, err)
 
-	err = db.Migrate()
+	err = Migrate(db)
 	require.NoError(t, err)
 
 	file, err := os.Open("testdata/mock-db.sql")
@@ -48,7 +49,7 @@ func MockDatabase(t *testing.T) *Database {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		_, err := db.Pool.Exec(scanner.Text())
+		_, err := db.Exec(scanner.Text())
 		require.NoError(t, err)
 	}
 	return db

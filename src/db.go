@@ -4,15 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
 )
-
-type Database struct {
-	Pool      *sql.DB
-	WriteLock sync.Mutex
-}
 
 type Migration struct {
 	Name    string
@@ -71,30 +65,30 @@ var migrations []Migration = []Migration{
 	},
 }
 
-func NewDatabase(path string) (*Database, error) {
-	pool, err := sql.Open("sqlite3", path)
+func NewDatabase(path string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=1", path))
 	if err != nil {
 		return nil, err
 	}
-	pool.SetMaxIdleConns(3)
-	pool.SetMaxOpenConns(3)
-	return &Database{Pool: pool}, nil
+	db.SetMaxIdleConns(3)
+	db.SetMaxOpenConns(3)
+	return db, nil
 }
 
-func (db *Database) Migrate() error {
+func Migrate(db *sql.DB) error {
 
 	var err, rollbackErr error
 	var stmt string
 
 	stmt = "CREATE TABLE IF NOT EXISTS _migrations (name text, PRIMARY KEY (name))"
-	_, err = db.Pool.Exec(stmt)
+	_, err = db.Exec(stmt)
 	if err != nil {
 		return err
 	}
 	for _, m := range migrations {
 		var cnt int
 		stmt = "SELECT count(*) FROM _migrations WHERE name=?"
-		err = db.Pool.QueryRow(stmt, m.Name).Scan(&cnt)
+		err = db.QueryRow(stmt, m.Name).Scan(&cnt)
 		if err != nil {
 			return err
 		}
@@ -103,7 +97,7 @@ func (db *Database) Migrate() error {
 			continue
 		}
 		// Running migration
-		tx, err := db.Pool.Begin()
+		tx, err := db.Begin()
 		if err != nil {
 			return err
 		}
