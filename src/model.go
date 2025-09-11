@@ -322,58 +322,6 @@ func (s *Storage) LoadSummits(dataDir string) error {
 	if err != nil {
 		return err
 	}
-	// Собираем все основные id и все legacy id для проверки пересечений
-	mainIds := make(map[string]string)   // id -> ridge
-	legacyIds := make(map[string]string) // legacy_id -> ridge
-	for _, ridgeDir := range ridgeDirs {
-		if !ridgeDir.IsDir() {
-			continue
-		}
-		ridgeId := ridgeDir.Name()
-		if strings.HasPrefix(ridgeId, ".") {
-			continue
-		}
-		ridgePath := path.Join(dataDir, ridgeId)
-		summitFiles, err := os.ReadDir(ridgePath)
-		if err != nil {
-			return err
-		}
-		for _, sf := range summitFiles {
-			if sf.Name() == "_meta.yaml" || sf.IsDir() {
-				continue
-			}
-			summitId := strings.TrimSuffix(sf.Name(), ".yaml")
-			if _, exists := mainIds[summitId]; exists {
-				return fmt.Errorf("duplicate summit id '%s' in ridges '%s' and '%s'", summitId, mainIds[summitId], ridgeId)
-			}
-			mainIds[summitId] = ridgeId
-			summitData, err := os.ReadFile(path.Join(ridgePath, sf.Name()))
-			if err != nil {
-				return err
-			}
-			var summit Summit
-			err = yaml.Unmarshal(summitData, &summit)
-			if err != nil {
-				return err
-			}
-			for _, legacyId := range summit.LegacyIds {
-				if legacyId == "" || legacyId == summitId {
-					continue
-				}
-				if _, exists := legacyIds[legacyId]; exists {
-					return fmt.Errorf("duplicate legacy id '%s' in ridges '%s' and '%s'", legacyId, legacyIds[legacyId], ridgeId)
-				}
-				legacyIds[legacyId] = ridgeId
-			}
-		}
-	}
-	// Проверяем, что ни один legacy_id не совпадает с основным id другой вершины
-	for legacyId, ridgeL := range legacyIds {
-		if ridgeM, exists := mainIds[legacyId]; exists {
-			return fmt.Errorf("legacy id '%s' in ridge '%s' conflicts with main id in ridge '%s'", legacyId, ridgeL, ridgeM)
-		}
-	}
-	// После проверки — обычная загрузка
 	for _, ridgeDir := range ridgeDirs {
 		if !ridgeDir.IsDir() {
 			continue
@@ -407,6 +355,14 @@ func (s *Storage) LoadSummits(dataDir string) error {
 		) WHERE summit_id IN (SELECT legacy_id FROM summit_ids_legacy)`)
 	if err != nil {
 		return fmt.Errorf("failed to update climbs with legacy summit ids: %v", err)
+	}
+	// Дополнительная страховка: проверяем что нет пересечения legacy_id с основными id уже в БД
+	var conflictCount int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM summits INNER JOIN summit_ids_legacy sil ON summits.id = sil.legacy_id`).Scan(&conflictCount); err != nil {
+		return fmt.Errorf("failed to check legacy/main id conflicts: %v", err)
+	}
+	if conflictCount > 0 {
+		return fmt.Errorf("conflict: %d legacy ids overlap with main summit ids", conflictCount)
 	}
 	if err := tx.Commit(); err != nil {
 		return err
@@ -543,20 +499,13 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	FROM summits s INNER JOIN ridges r ON s.ridge_id = r.id
 	WHERE s.id = ?
 	`
-	// Сначала определяем канонический ID вершины (учитывая legacy), затем один раз выполняем основной запрос
+	// Определяем канонический ID: если переданный summitId является legacy — подменяем, иначе используем как есть
 	canonicalId := summitId
-	if err := s.db.QueryRow("SELECT id FROM summits WHERE id = ?", summitId).Scan(&canonicalId); err != nil {
-		if err == sql.ErrNoRows {
-			// Пробуем найти как legacy
-			if lerr := s.db.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", summitId).Scan(&canonicalId); lerr != nil {
-				if lerr == sql.ErrNoRows {
-					return nil, nil // вообще не найдено
-				}
-				return nil, lerr
-			}
-		} else {
+	if err := s.db.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", summitId).Scan(&canonicalId); err != nil {
+		if err != sql.ErrNoRows { // любая иная ошибка
 			return nil, err
 		}
+		// sql.ErrNoRows означает, что это не legacy — используем переданный ID напрямую
 	}
 	// Теперь выбираем данные по canonicalId
 	if err = s.db.QueryRow(query, canonicalId).Scan(&summit.Id,
