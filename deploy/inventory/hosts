@@ -1,4 +1,4 @@
 [servers]
 # Replace with your server's IP or hostname
 # alpha ansible_host=alpha.thousands.su ansible_user=root domain_name=alpha.thousands.su vk_client_id=5196507 su_client_id=thousandsalpha
-prod ansible_host=alpha.thousands.su ansible_user=root domain_name=1000.southural.ru vk_client_id=4890287 su_client_id=thousands enable_ssl=false
+prod ansible_host=alpha.thousands.su ansible_user=root domain_name=1000.southural.ru vk_client_id=4890287 su_client_id=thousands enable_ssl=true
