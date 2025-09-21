@@ -37,7 +37,8 @@ func AreEqualJSON(s1, s2 string) (bool, error) {
 }
 
 func MockDatabase(t *testing.T) *sql.DB {
-	db, err := NewDatabase(":memory:")
+	path := filepath.Join(t.TempDir(), "thousands-test.db")
+	db, err := NewDatabase(path)
 	require.NoError(t, err)
 
 	err = Migrate(db)
@@ -62,7 +63,7 @@ func GetMockApp(t *testing.T, userId int64, config *RuntimeConfig) *App {
 	storage := NewStorage(db)
 	err := storage.LoadSummits(config.Datadir)
 	require.NoError(t, err)
-	return NewAppServer(config, storage, sm)
+	return NewAppServer(config, storage, sm, NewMockImageManager(t.TempDir()))
 }
 
 func TestSummitsTableHandler(t *testing.T) {

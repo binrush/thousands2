@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"io/fs"
 	"log"
@@ -28,10 +29,10 @@ type App struct {
 	router     *chi.Mux
 }
 
-func NewAppServer(conf *RuntimeConfig, storage *Storage, sm *scs.SessionManager) *App {
+func NewAppServer(conf *RuntimeConfig, storage *Storage, sm *scs.SessionManager, imageManager ImageManager) *App {
 	app := &App{
 		Api:        NewApi(conf, storage, sm),
-		AuthServer: NewAuthServer(GetAuthProviders(os.Getenv("BASE_URL")), storage, sm),
+		AuthServer: NewAuthServer(GetAuthProviders(os.Getenv("BASE_URL"), imageManager), storage, sm),
 		SM:         sm,
 		router:     chi.NewRouter(),
 	}
@@ -104,6 +105,15 @@ func main() {
 		ItemsPerPage: 20,
 	}
 
+	imageManager, err := NewS3ImageManager(
+		os.Getenv("S3_ACCESS_KEY"),
+		os.Getenv("S3_SECRET_KEY"),
+		S3_ENDPOINT,
+		context.Background())
+	if err != nil {
+		log.Fatalf("Failed to create image manager: %v", err)
+	}
+
 	db, err := NewDatabase(path.Clean(os.Args[2]))
 	if err != nil {
 		log.Fatalf("Failed to connect to DB: %v", err)
@@ -128,7 +138,7 @@ func main() {
 	sm := scs.New()
 	sm.Store = sqlite3store.New(db)
 
-	app := NewAppServer(conf, storage, sm)
+	app := NewAppServer(conf, storage, sm, imageManager)
 
 	log.Println("Server starting on :5000")
 	log.Fatal(http.ListenAndServe(":5000", app.router))

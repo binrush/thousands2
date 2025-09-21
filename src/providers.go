@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/vk"
@@ -50,8 +51,9 @@ type VKUserGetResponse struct {
 }
 
 type VKProvider struct {
-	config  *oauth2.Config
-	BaseUrl string
+	config       *oauth2.Config
+	BaseUrl      string
+	imageManager ImageManager
 }
 
 func (provider *VKProvider) GetConfig() *oauth2.Config {
@@ -109,7 +111,7 @@ func (provider *VKProvider) Register(token *oauth2.Token, storage *Storage, ctx 
 	}
 	// load images. If download failed, just log it and proceed
 	if userData.HasPhoto > 0 {
-		// download main image
+		wg := sync.WaitGroup{}
 		for _, img := range []struct {
 			url  string
 			size string
@@ -117,17 +119,30 @@ func (provider *VKProvider) Register(token *oauth2.Token, storage *Storage, ctx 
 			{userData.Photo50, ImageSmall},
 			{userData.Photo200Orig, ImageMedium},
 		} {
-			_, err := downloadImage(*oauthClient, img.url)
-			if err != nil {
-				log.Printf("Failed to load image for user %d: %v", userId, err)
-			}
-			imageKey := fmt.Sprintf("users/%d_%s.jpg", userId, img.size)
-			// TODO: upload image to S3
-			err = storage.UpdateUserImage(userId, img.size, imageKey)
-			if err != nil {
-				log.Printf("Failed to store image for user %d: %v", userId, err)
-			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				imageData, err := downloadImage(*oauthClient, img.url)
+				if err != nil {
+					log.Printf("Failed to load image for user %d: %v", userId, err)
+					return
+				}
+				imageKey := fmt.Sprintf("users/%d_%s.jpg", userId, img.size)
+
+				// using background context to allow images to be uploaded after request is finished
+				err = provider.imageManager.Upload(ctx, imageData, imageKey)
+				if err != nil {
+					log.Printf("Failed to upload image to S3 for user %d: %v", userId, err)
+					return
+				}
+
+				err = storage.UpdateUserImage(userId, img.size, imageKey)
+				if err != nil {
+					log.Printf("Failed to store image for user %d: %v", userId, err)
+				}
+			}()
 		}
+		wg.Wait()
 	}
 	return userId, nil
 }
@@ -146,13 +161,6 @@ func downloadImage(client http.Client, url string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read image %s: %v", url, err)
 	}
 	return img, nil
-	/*
-		err = UpdateUserImage(db, userId, size, img)
-		if err != nil {
-			return fmt.Errorf("failed to store image %s in database: %v", url, err)
-		}
-		return nil
-	*/
 }
 
 type SUAuthProvider struct {
@@ -213,7 +221,7 @@ func (p *SUAuthProvider) Register(token *oauth2.Token, storage *Storage, ctx con
 	return userId, nil
 }
 
-func GetAuthProviders(baseUrl string) AuthProviders {
+func GetAuthProviders(baseUrl string, imageManager ImageManager) AuthProviders {
 	providers := make(AuthProviders)
 	providers["vk"] = &VKProvider{
 		&oauth2.Config{
@@ -223,6 +231,7 @@ func GetAuthProviders(baseUrl string) AuthProviders {
 			Endpoint:     vk.Endpoint,
 		},
 		VKApiBaseUrl,
+		imageManager,
 	}
 	providers["su"] = &SUAuthProvider{
 		&oauth2.Config{

@@ -24,6 +24,27 @@ const (
 	MockUserName = "Climbing User"
 )
 
+type MockImageManager struct {
+	tempDir string
+}
+
+func NewMockImageManager(tempDir string) *MockImageManager {
+	return &MockImageManager{tempDir: tempDir}
+}
+
+func (im *MockImageManager) Upload(ctx context.Context, imageData []byte, key string) error {
+	// store images in temp directory
+	err := os.MkdirAll(path.Join(im.tempDir, path.Dir(key)), 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create directory for image: %v", err)
+	}
+	err = os.WriteFile(path.Join(im.tempDir, key), imageData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to upload image to temp directory: %v", err)
+	}
+	return nil
+}
+
 func TestVkGetUserId(t *testing.T) {
 	vk := &VKProvider{}
 
@@ -155,9 +176,12 @@ func TestVKRegister(t *testing.T) {
 	mockVKServer := httptest.NewServer(http.HandlerFunc(MockVKHandler))
 	defer mockVKServer.Close()
 
+	imageDir := t.TempDir()
+
 	vk := &VKProvider{
 		&oauth2.Config{},
 		mockVKServer.URL,
+		NewMockImageManager(imageDir),
 	}
 	token := &oauth2.Token{
 		AccessToken: MockAccessToken,
@@ -196,22 +220,18 @@ func TestVKRegister(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get image for user %d: %v", userId, err)
 		}
-		assert.Equal(t, fmt.Sprintf("users/%d_%s.jpg", userId, tt.size), img)
-		// TODO: check if file is uploaded to S3
-		/*
-			f, err := os.Open(tt.expected)
-			if err != nil {
-				panic(err)
-			}
-			defer f.Close()
-			expectedImg, err := io.ReadAll(f)
-			if err != nil {
-				panic(err)
-			}
-			if !reflect.DeepEqual(img, expectedImg) {
-				t.Fatalf("Unexpected image stored for user %d", userId)
-			}
-		*/
+		imagePath := fmt.Sprintf("users/%d_%s.jpg", userId, tt.size)
+		assert.Equal(t, imagePath, img)
+		//check if files are stored
+		uploadedImg, err := os.ReadFile(path.Join(imageDir, imagePath))
+		if err != nil {
+			t.Fatalf("Failed to read image for user %d: %v", userId, err)
+		}
+		expectedImg, err := os.ReadFile(tt.expected)
+		if err != nil {
+			t.Fatalf("Failed to read image for user %d: %v", userId, err)
+		}
+		assert.Equal(t, expectedImg, uploadedImg)
 	}
 }
 
@@ -219,9 +239,12 @@ func TestVKRegisterError(t *testing.T) {
 	mockVKServer := httptest.NewServer(http.HandlerFunc(MockVKHandler))
 	defer mockVKServer.Close()
 
+	imageDir := t.TempDir()
+
 	vk := &VKProvider{
 		&oauth2.Config{},
 		mockVKServer.URL,
+		NewMockImageManager(imageDir),
 	}
 	token := &oauth2.Token{
 		AccessToken: "incorrect token",
