@@ -129,6 +129,9 @@ type Summit struct {
 	Ridge          *Ridge        `json:"ridge"`
 	Images         []SummitImage `json:"images"`
 	ClimbData      *ClimbData    `json:"climb_data"`
+	// LegacyIds содержит старые идентификаторы вершины (использовались ранее в URL).
+	// Подгружается из YAML, но не экспортируется в публичное API JSON, чтобы не ломать клиентов и тесты.
+	LegacyIds []string `yaml:"legacy_ids" json:"-"`
 }
 
 func (s *Summit) JSON() ([]byte, error) {
@@ -231,6 +234,16 @@ func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 		return err
 	}
 	defer summitsStmt.Close()
+
+	legacyStmt, err := tx.Prepare(
+		`INSERT INTO summit_ids_legacy 
+			(legacy_id, summit_id) 
+		VALUES (?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer legacyStmt.Close()
+
 	summitsNum := 0
 	for _, sf := range summitFiles {
 		if (sf.Name() == "_meta.yaml") || sf.IsDir() {
@@ -257,6 +270,16 @@ func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 		if err != nil {
 			return err
 		}
+
+		for _, legacyId := range summit.LegacyIds {
+			if legacyId == "" || legacyId == summit.Id {
+				continue
+			}
+			_, lerr := legacyStmt.Exec(legacyId, summit.Id)
+			if lerr != nil {
+				return fmt.Errorf("failed to insert legacy id %s for summit %s: %v", legacyId, summit.Id, lerr)
+			}
+		}
 		if len(summit.Images) > 0 {
 			err = s.LoadSummitImages(summit.Images, summit.Id, tx)
 			if err != nil {
@@ -278,6 +301,7 @@ func (s *Storage) LoadSummits(dataDir string) error {
 	}
 	defer tx.Rollback()
 	cleanupQueries := []string{
+		"DELETE FROM summit_ids_legacy",
 		"DELETE FROM summit_images",
 		"DELETE FROM summits",
 		"DELETE FROM ridges",
@@ -324,6 +348,21 @@ func (s *Storage) LoadSummits(dataDir string) error {
 		if err = s.LoadRidge(ridgePath, ridge.Id, tx); err != nil {
 			return err
 		}
+	}
+	// After loading summits and legacy mappings, update climbs referencing legacy ids
+	_, err = tx.Exec(`UPDATE climbs SET summit_id = (
+			SELECT summit_id FROM summit_ids_legacy sil WHERE sil.legacy_id = climbs.summit_id
+		) WHERE summit_id IN (SELECT legacy_id FROM summit_ids_legacy)`)
+	if err != nil {
+		return fmt.Errorf("failed to update climbs with legacy summit ids: %v", err)
+	}
+	// Дополнительная страховка: проверяем что нет пересечения legacy_id с основными id уже в БД
+	var conflictCount int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM summits INNER JOIN summit_ids_legacy sil ON summits.id = sil.legacy_id`).Scan(&conflictCount); err != nil {
+		return fmt.Errorf("failed to check legacy/main id conflicts: %v", err)
+	}
+	if conflictCount > 0 {
+		return fmt.Errorf("conflict: %d legacy ids overlap with main summit ids", conflictCount)
 	}
 	if err := tx.Commit(); err != nil {
 		return err
@@ -445,6 +484,18 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 	return climbs, totalClimbs, nil
 }
 
+func (s *Storage) ResolveLegacyId(legacyId string) (string, error) {
+	var canonicalId string
+	err := s.db.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", legacyId).Scan(&canonicalId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return canonicalId, nil
+}
+
 func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	var summit Summit
 	var ridge Ridge
@@ -452,6 +503,7 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	summit.NameAlt = new(string)
 	summit.Ridge = &ridge
 	summit.Coordinates = [2]float32{}
+	var err error
 
 	query := `SELECT
 		s.id, s.name, s.name_alt, s.interpretation, s.description, s.height, s.lat, s.lng,
@@ -459,15 +511,14 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	FROM summits s INNER JOIN ridges r ON s.ridge_id = r.id
 	WHERE s.id = ?
 	`
-	err := s.db.QueryRow(query, summitId).Scan(&summit.Id,
+	if err = s.db.QueryRow(query, summitId).Scan(&summit.Id,
 		&summit.Name, &summit.NameAlt, &summit.Interpretation,
 		&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
 		&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
-	)
-	if err == sql.ErrNoRows {
-		return nil, nil // summit not found
-	}
-	if err != nil {
+	); err != nil {
+		if err == sql.ErrNoRows { // теоретически не должно случиться после проверки, но обработаем
+			return nil, nil
+		}
 		return nil, err
 	}
 

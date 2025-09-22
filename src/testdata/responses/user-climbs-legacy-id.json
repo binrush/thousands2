@@ -1,0 +1,25 @@
+[
+  {
+    "climb_data": {
+      "comment": "Implemented 24hour ability",
+      "date": {
+        "Day": 12,
+        "Month": 5,
+        "Year": 2016
+      }
+    },
+    "coordinates": [0, 0],
+    "description": null,
+    "height": 1026,
+    "id": "stolby",
+    "images": null,
+    "interpretation": null,
+    "name": "Столбы",
+    "name_alt": null,
+    "ridge": {
+      "color": "",
+      "id": "stolby",
+      "name": "Столбы"
+    }
+  }
+]

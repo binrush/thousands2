@@ -66,6 +66,16 @@ func (h *Api) handleSummitGet(w http.ResponseWriter, r *http.Request) {
 
 	userId := h.SM.GetInt64(r.Context(), UserIdKey)
 
+	canonicalId, err := h.Storage.ResolveLegacyId(summitId)
+	if err != nil {
+		log.Printf("Failed to resolve legacy id %s: %v", summitId, err)
+		h.writeError(w, serverError)
+		return
+	}
+	if canonicalId != "" {
+		summitId = canonicalId
+	}
+
 	summit, err := h.Storage.FetchSummit(summitId, userId)
 	if err != nil {
 		log.Printf("Failed to fetch summit %s/%s: %v", ridgeId, summitId, err)
@@ -128,7 +138,6 @@ func (h *Api) handleSummitDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	summitId := chi.URLParam(r, "summitId")
-
 	err := h.Storage.DeleteClimb(summitId, userId)
 	if err != nil {
 		log.Printf("Failed to delete climb: %v", err)
@@ -141,12 +150,13 @@ func (h *Api) handleSummitDelete(w http.ResponseWriter, r *http.Request) {
 
 func (h *Api) handleSummitClimbs(w http.ResponseWriter, r *http.Request) {
 	ridgeId := chi.URLParam(r, "ridgeId")
-	summitId := chi.URLParam(r, "summitId")
+	SummitId := chi.URLParam(r, "summitId")
 
-	// Check if summit exists
-	summit, err := h.Storage.FetchSummit(summitId, 0)
+	// Check if summit exists to correctly handle this case
+	// (we do not want to return empty list for non-existing summit)
+	summit, err := h.Storage.FetchSummit(SummitId, 0)
 	if err != nil {
-		log.Printf("Failed to verify summit %s/%s: %v", ridgeId, summitId, err)
+		log.Printf("Failed to verify summit %s/%s: %v", ridgeId, SummitId, err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -163,15 +173,13 @@ func (h *Api) handleSummitClimbs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch only the climbs data
-	climbs, totalClimbs, err := h.Storage.FetchSummitClimbs(summitId, page, h.Config.ItemsPerPage)
+	climbs, totalClimbs, err := h.Storage.FetchSummitClimbs(summit.Id, page, h.Config.ItemsPerPage)
 	if err != nil {
-		log.Printf("Failed to fetch climbs for summit %s/%s: %v", ridgeId, summitId, err)
+		log.Printf("Failed to fetch climbs for summit %s/%s(real:%s): %v", ridgeId, SummitId, summit.Id, err)
 		h.writeError(w, serverError)
 		return
 	}
 
-	// Return just the climbs data
 	response := struct {
 		Climbs      []SummitClimb `json:"climbs"`
 		TotalClimbs int           `json:"total_climbs"`

@@ -74,6 +74,16 @@ var migrations []Migration = []Migration{
 			`CREATE INDEX sessions_expiry_idx ON sessions(expiry)`,
 		},
 	},
+	{
+		"SummitLegacyIds",
+		[]string{
+			`CREATE TABLE summit_ids_legacy (
+				legacy_id TEXT NOT NULL PRIMARY KEY,
+				summit_id TEXT NOT NULL,
+				FOREIGN KEY (summit_id) REFERENCES summits(id)
+			)`,
+		},
+	},
 }
 
 func NewDatabase(path string) (*sql.DB, error) {

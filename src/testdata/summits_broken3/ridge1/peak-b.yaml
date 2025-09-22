@@ -1,0 +1,11 @@
+height: 1300
+coordinates:
+  - 55.2
+  - 61.2
+legacy_ids:
+  - peak-a # конфликт: legacy совпадает с актуальным id другой вершины
+images: []
+name: Пик Б
+name_alt: null
+description: null
+interpretation: null

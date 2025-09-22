@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../auth'
 import { getImageUrl } from '../utils/images'
 import { formatRussianDate } from '../utils/dates'
@@ -8,6 +8,7 @@ import Pagination from '../components/Pagination.vue'
 import { usePagination } from '../composables/usePagination'
 
 const route = useRoute()
+const router = useRouter()
 const { authState } = useAuth()
 
 const summit = ref(null)
@@ -29,11 +30,13 @@ watch(summit, (newSummit) => {
 }, { immediate: true })
 
 // Declare fetchClimbs first before using it in usePagination
-async function fetchClimbs(page = 1) {
+async function fetchClimbs(page = 1, summitId = null) {
   try {
     isLoadingClimbs.value = true
 
-    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}/climbs?page=${page}`)
+    // Use the provided summitId or fall back to route params
+    const summitIdToUse = summitId || route.params.summit_id
+    const response = await fetch(`/api/summit/${route.params.ridge_id}/${summitIdToUse}/climbs?page=${page}`)
     if (!response.ok) throw new Error('Failed to fetch climbs')
     const data = await response.json()
 
@@ -59,20 +62,30 @@ const { currentPage, totalPages, handlePageChange } = usePagination(fetchClimbs)
 const fetchSummitDetails = async () => {
   try {
     isLoading.value = true
-    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}`)
+    const requestedId = route.params.summit_id
+    const response = await fetch(`/api/summit/${route.params.ridge_id}/${requestedId}`)
     if (!response.ok) throw new Error('Failed to fetch summit')
     summit.value = await response.json()
+    // Если сервер вернул summit с другим ID - заменить URL (историю не засоряем)
+    if (summit.value && summit.value.id && summit.value.id !== requestedId) {
+      router.replace({ name: 'summit', params: { ridge_id: route.params.ridge_id, summit_id: summit.value.id } })
+    }
+    // Return the actual summit ID (which might be different from requested)
+    return summit.value?.id || requestedId
   } catch (err) {
     error.value = err.message
+    return null
   } finally {
     isLoading.value = false
   }
 }
 
 // Initial fetch on mount
-onMounted(() => {
-  fetchSummitDetails()
-  fetchClimbs(currentPage.value)
+onMounted(async () => {
+  const summitId = await fetchSummitDetails()
+  if (summitId) {
+    fetchClimbs(currentPage.value, summitId)
+  }
 })
 
 const openCommentModal = (climb) => {

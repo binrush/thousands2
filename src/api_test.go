@@ -171,6 +171,13 @@ func TestHandlersHappyPath(t *testing.T) {
 		{"malinovaja summit", "/api/summit/malidak/malinovaja", "summit-3.json", nil},
 		{"user profile", "/api/user/5", "user-1.json", nil},
 		{"user climbs", "/api/user/5/climbs", "user-climbs-1.json", nil},
+		// summit with legacy ids should be available by any id
+		{"summit by legacy ids", "/api/summit/stolby/1026-1", "summit-by-legacy-id.json", nil},
+		{"summit by legacy ids", "/api/summit/stolby/1026", "summit-by-legacy-id.json", nil},
+		{"summit having legacy id by new id", "/api/summit/stolby/stolby", "summit-by-legacy-id.json", nil},
+		// user that registered his climb with legacy summit id
+		// should have this clime available with the new id
+		{"summit having legacy id by new id", "/api/user/6/climbs", "user-climbs-legacy-id.json", nil},
 	}
 	conf := &RuntimeConfig{
 		Datadir:      "testdata/summits",

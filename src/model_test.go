@@ -15,6 +15,8 @@ func TestLoadSummits(t *testing.T) {
 		"testdata/summits_broken0",
 		"testdata/summits_broken1",
 		"testdata/summits_broken2",
+		"testdata/summits_broken3", // новый кейс: legacy id пересекается с основным id
+		"testdata/summits_broken4", // новый кейс: legacy id пересекается с другим legacy id
 	}
 	tables := []string{"ridges", "summits"}
 
