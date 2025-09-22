@@ -484,6 +484,18 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 	return climbs, totalClimbs, nil
 }
 
+func (s *Storage) ResolveLegacyId(legacyId string) (string, error) {
+	var canonicalId string
+	err := s.db.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", legacyId).Scan(&canonicalId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return canonicalId, nil
+}
+
 func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	var summit Summit
 	var ridge Ridge
@@ -499,16 +511,7 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	FROM summits s INNER JOIN ridges r ON s.ridge_id = r.id
 	WHERE s.id = ?
 	`
-	// Определяем канонический ID: если переданный summitId является legacy — подменяем, иначе используем как есть
-	canonicalId := summitId
-	if err := s.db.QueryRow("SELECT summit_id FROM summit_ids_legacy WHERE legacy_id = ?", summitId).Scan(&canonicalId); err != nil {
-		if err != sql.ErrNoRows { // любая иная ошибка
-			return nil, err
-		}
-		// sql.ErrNoRows означает, что это не legacy — используем переданный ID напрямую
-	}
-	// Теперь выбираем данные по canonicalId
-	if err = s.db.QueryRow(query, canonicalId).Scan(&summit.Id,
+	if err = s.db.QueryRow(query, summitId).Scan(&summit.Id,
 		&summit.Name, &summit.NameAlt, &summit.Interpretation,
 		&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
 		&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,

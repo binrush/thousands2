@@ -10,8 +10,8 @@
       "lng": 58.4654,
       "color": "c0e3b7",
       "visitors": 0,
-      "rank": 3,
-      "is_main": true,
+      "rank": 4,
+      "is_main": false,
       "climbed": false
     },
     {
@@ -37,8 +37,8 @@
       "color": "6d794f",
       "lat": 53.8014,
       "lng": 58.702,
-      "visitors": 10,
-      "rank": 4,
+      "visitors": 9,
+      "rank": 5,
       "is_main": true,
       "climbed": false
     },
@@ -54,6 +54,20 @@
       "visitors": 2,
       "rank": 2,
       "is_main": false,
+      "climbed": false
+    },
+    {
+      "id": "stolby",
+      "name": "Столбы",
+      "height": 1026,
+      "ridge": "Столбы",
+	    "ridge_id": "stolby",
+      "lat": 54.1986,
+      "lng": 58.4818,
+      "color": "c0e3b7",
+      "visitors": 1,
+      "rank": 3,
+      "is_main": true,
       "climbed": false
     }
   ]

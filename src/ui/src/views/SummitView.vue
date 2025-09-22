@@ -30,11 +30,13 @@ watch(summit, (newSummit) => {
 }, { immediate: true })
 
 // Declare fetchClimbs first before using it in usePagination
-async function fetchClimbs(page = 1) {
+async function fetchClimbs(page = 1, summitId = null) {
   try {
     isLoadingClimbs.value = true
 
-    const response = await fetch(`/api/summit/${route.params.ridge_id}/${route.params.summit_id}/climbs?page=${page}`)
+    // Use the provided summitId or fall back to route params
+    const summitIdToUse = summitId || route.params.summit_id
+    const response = await fetch(`/api/summit/${route.params.ridge_id}/${summitIdToUse}/climbs?page=${page}`)
     if (!response.ok) throw new Error('Failed to fetch climbs')
     const data = await response.json()
 
@@ -68,17 +70,22 @@ const fetchSummitDetails = async () => {
     if (summit.value && summit.value.id && summit.value.id !== requestedId) {
       router.replace({ name: 'summit', params: { ridge_id: route.params.ridge_id, summit_id: summit.value.id } })
     }
+    // Return the actual summit ID (which might be different from requested)
+    return summit.value?.id || requestedId
   } catch (err) {
     error.value = err.message
+    return null
   } finally {
     isLoading.value = false
   }
 }
 
 // Initial fetch on mount
-onMounted(() => {
-  fetchSummitDetails()
-  fetchClimbs(currentPage.value)
+onMounted(async () => {
+  const summitId = await fetchSummitDetails()
+  if (summitId) {
+    fetchClimbs(currentPage.value, summitId)
+  }
 })
 
 const openCommentModal = (climb) => {

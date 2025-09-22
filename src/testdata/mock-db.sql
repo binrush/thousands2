@@ -51,7 +51,8 @@ INSERT INTO "climbs" VALUES(2,'kurkak',1992,4,18,'Down-sized coherent service-de
 INSERT INTO "climbs" VALUES(3,'kurkak',2012,3,7,'Expanded secondary alliance');
 INSERT INTO "climbs" VALUES(4,'kurkak',1994,9,26,'Customizable impactful info-mediaries');
 INSERT INTO "climbs" VALUES(5,'kurkak',1990,3,7,'Future-proofed optimizing methodology');
-INSERT INTO "climbs" VALUES(6,'kurkak',2016,5,12,'Implemented 24hour ability');
+-- climb for legacy id
+INSERT INTO "climbs" VALUES(6,'1026',2016,5,12,'Implemented 24hour ability');
 INSERT INTO "climbs" VALUES(7,'kurkak',2010,12,15,'Digitized global intranet');
 INSERT INTO "climbs" VALUES(9,'kurkak',1998,3,24,'Fundamental full-range paradigm');
 INSERT INTO "climbs" VALUES(10,'kurkak',1995,12,NULL,'Organized mobile data-warehouse');

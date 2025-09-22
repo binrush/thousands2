@@ -1,0 +1,24 @@
+{
+  "id": "stolby",
+  "name": "Столбы",
+  "name_alt": null,
+  "interpretation": null,
+  "description": "Скалы-останцы. На западном склоне горы &mdash; скалы-останцы &mdash; Большие и Малые Столбищи.",
+  "height": 1026,
+  "coordinates": [
+    54.1986,
+    58.4818
+  ],
+  "ridge": {
+    "id": "stolby",
+    "name": "Столбы",
+    "color": "c0e3b7"
+  },
+  "images": [
+    {
+      "comment": "Вершина",
+      "url": "summits/stolby_vershina_0.jpg"
+    }
+  ],
+  "climb_data": null
+}
