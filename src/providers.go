@@ -12,11 +12,10 @@ import (
 	"sync"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/vk"
 )
 
 const (
-	VKApiBaseUrl = "https://api.vk.com"
+	VKApiBaseUrl = "https://api.vk.ru"
 	SUApiBaseUrl = "https://www.southural.ru/oauth2/"
 	AuthSrcVK    = 1
 	AuthSrcSU    = 2
@@ -228,7 +227,10 @@ func GetAuthProviders(baseUrl string, imageManager ImageManager) AuthProviders {
 			RedirectURL:  baseUrl + "/auth/authorized/vk",
 			ClientID:     os.Getenv("VK_CLIENT_ID"),
 			ClientSecret: os.Getenv("VK_CLIENT_SECRET"),
-			Endpoint:     vk.Endpoint,
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  "https://oauth.vk.ru/authorize",
+				TokenURL: "https://oauth.vk.ru/access_token",
+			},
 		},
 		VKApiBaseUrl,
 		imageManager,

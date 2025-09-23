@@ -8,7 +8,7 @@
       <p class="text-sm text-gray-600 dark:text-gray-300">© 2024 Тысячники Южного Урала</p>
 
       <div class="flex -mx-2">
-        <a href="https://vk.com/southural_1000" class="mx-2 text-gray-600 transition-colors duration-300 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400" aria-label="VK">
+        <a href="https://vk.ru/southural_1000" class="mx-2 text-gray-600 transition-colors duration-300 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400" aria-label="VK">
           <img src="/vklogo.svg" class="w-5 h-5" alt="VK">
         </a>
       </div>

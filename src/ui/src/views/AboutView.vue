@@ -18,7 +18,7 @@
 
       <h2 class="text-xl font-semibold mt-6 mb-4">Контактная информация</h2>
       <p class="mb-4">
-        Новости проекта публикуются в группе <a href="https://vk.com/southural_1000">Вконтакте</a>
+        Новости проекта публикуются в группе <a href="https://vk.ru/southural_1000">Вконтакте</a>
       </p>
       <p class="mb-4">
         По вопросам, касающимся работы сайта, можно писать на <a href="mailto:rush.ru@gmail.com">rush.ru@gmail.com</a>.
