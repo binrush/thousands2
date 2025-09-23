@@ -41,6 +41,11 @@ func MockDatabase(t *testing.T) *sql.DB {
 	db, err := NewDatabase(path)
 	require.NoError(t, err)
 
+	// Гарантируем, что база данных будет закрыта после завершения теста, чтобы освободить файловые дескрипторы в Windows
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
 	err = Migrate(db)
 	require.NoError(t, err)
 
@@ -105,6 +110,23 @@ func TestSummitsTableHandler(t *testing.T) {
 			assert.JSONEq(t, string(expected), rr.Body.String(), "Response body mismatch")
 		})
 	}
+}
+
+func TestSummitProminenceSeparateFixtures(t *testing.T) {
+	// Use dedicated fixtures with prominence defined only for this test
+	conf := &RuntimeConfig{Datadir: filepath.Join("testdata", "summits_prominence"), ItemsPerPage: 5}
+	app := GetMockApp(t, 0, conf)
+
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/api/summit/malidak/kirel", nil)
+	require.NoError(t, err)
+	app.router.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &got))
+	// поле должно присутствовать и быть тем, что в YAML
+	require.Equal(t, float64(321), got["prominence"])
 }
 
 func TestHandlersClientErrors(t *testing.T) {

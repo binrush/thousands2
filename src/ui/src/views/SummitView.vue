@@ -20,6 +20,7 @@ const totalClimbs = ref(0)
 const climbersSection = ref(null)
 const showCommentModal = ref(false)
 const selectedComment = ref(null)
+const showProminenceInfo = ref(false)
 
 // Watch for summit data changes to update page title
 watch(summit, (newSummit) => {
@@ -123,6 +124,32 @@ const closeCommentModal = () => {
               <span class="text-gray-700">
                 {{ summit.height }}м, хребет {{ summit.ridge.name }}
               </span>
+            </div>
+
+            <div
+              v-if="summit.prominence && summit.prominence > 0"
+              class="mt-1 flex items-center"
+            >
+              <span class="text-gray-700">Видность: {{ summit.prominence }}м</span>
+              <div class="relative inline-block">
+                <button
+                  class="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-gray-700 text-xs hover:bg-gray-300"
+                  title="Что такое видность?"
+                  @click="showProminenceInfo = !showProminenceInfo"
+                >
+                  ?
+                </button>
+                <div
+                  v-if="showProminenceInfo"
+                  class="absolute z-10 mt-2 w-72 p-3 bg-white border border-gray-200 rounded-lg shadow-lg text-sm text-gray-700"
+                >
+                  <div class="font-medium mb-1">Видность (относительная высота)</div>
+                  Высота вершины над высшей седловиной, соединяющей её с более высокой вершиной. Помогает оценить «самостоятельность» вершины относительно окружающего рельефа.
+                  <div class="text-right mt-2">
+                    <button class="text-blue-600 hover:underline" @click="showProminenceInfo = false">Понятно</button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="mt-2">

@@ -84,6 +84,12 @@ var migrations []Migration = []Migration{
 			)`,
 		},
 	},
+	{
+		"AddSummitProminence",
+		[]string{
+			`ALTER TABLE summits ADD COLUMN prominence INTEGER NOT NULL DEFAULT 0`,
+		},
+	},
 }
 
 func NewDatabase(path string) (*sql.DB, error) {
