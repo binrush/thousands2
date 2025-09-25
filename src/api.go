@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -68,7 +68,7 @@ func (h *Api) handleSummitGet(w http.ResponseWriter, r *http.Request) {
 
 	canonicalId, err := h.Storage.ResolveLegacyId(summitId)
 	if err != nil {
-		log.Printf("Failed to resolve legacy id %s: %v", summitId, err)
+		slog.Error("Failed to resolve legacy id", "summitId", summitId, "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -78,7 +78,7 @@ func (h *Api) handleSummitGet(w http.ResponseWriter, r *http.Request) {
 
 	summit, err := h.Storage.FetchSummit(summitId, userId)
 	if err != nil {
-		log.Printf("Failed to fetch summit %s/%s: %v", ridgeId, summitId, err)
+		slog.Error("Failed to fetch summit", "ridgeId", ridgeId, "summitId", summitId, "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -102,7 +102,7 @@ func (h *Api) handleSummitPut(w http.ResponseWriter, r *http.Request) {
 
 	summit, err := h.Storage.FetchSummit(summitId, userId)
 	if err != nil {
-		log.Printf("Failed to fetch summit %s/%s: %v", ridgeId, summitId, err)
+		slog.Error("Failed to fetch summit", "ridgeId", ridgeId, "summitId", summitId, "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -122,7 +122,7 @@ func (h *Api) handleSummitPut(w http.ResponseWriter, r *http.Request) {
 
 	err = h.Storage.UpdateClimb(summit.Id, userId, ied, comment)
 	if err != nil {
-		log.Printf("Failed to update climb: %v", err)
+		slog.Error("Failed to update climb", "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -140,7 +140,7 @@ func (h *Api) handleSummitDelete(w http.ResponseWriter, r *http.Request) {
 	summitId := chi.URLParam(r, "summitId")
 	err := h.Storage.DeleteClimb(summitId, userId)
 	if err != nil {
-		log.Printf("Failed to delete climb: %v", err)
+		slog.Error("Failed to delete climb", "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -156,7 +156,7 @@ func (h *Api) handleSummitClimbs(w http.ResponseWriter, r *http.Request) {
 	// (we do not want to return empty list for non-existing summit)
 	summit, err := h.Storage.FetchSummit(SummitId, 0)
 	if err != nil {
-		log.Printf("Failed to verify summit %s/%s: %v", ridgeId, SummitId, err)
+		slog.Error("Failed to find summit", "ridgeId", ridgeId, "summitId", SummitId, "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -175,7 +175,7 @@ func (h *Api) handleSummitClimbs(w http.ResponseWriter, r *http.Request) {
 
 	climbs, totalClimbs, err := h.Storage.FetchSummitClimbs(summit.Id, page, h.Config.ItemsPerPage)
 	if err != nil {
-		log.Printf("Failed to fetch climbs for summit %s/%s(real:%s): %v", ridgeId, SummitId, summit.Id, err)
+		slog.Error("Failed to fetch climbs for summit", "ridgeId", ridgeId, "summitId", SummitId, "realId", summit.Id, "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -197,7 +197,7 @@ func (h *Api) handleSummits(w http.ResponseWriter, r *http.Request) {
 	userId := h.SM.GetInt64(r.Context(), UserIdKey)
 	summits, err := h.Storage.FetchSummits(userId)
 	if err != nil {
-		log.Printf("Failed to fetch summits from db: %v", err)
+		slog.Error("Failed to fetch summits from db", "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -222,7 +222,7 @@ func (h *Api) handleTop(w http.ResponseWriter, r *http.Request) {
 
 	top, err := h.Storage.FetchTop(page, h.Config.ItemsPerPage)
 	if err != nil {
-		log.Printf("Failed to fetch top: %v", err)
+		slog.Error("Failed to fetch top", "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -251,12 +251,12 @@ func (h *Api) handleUser(w http.ResponseWriter, r *http.Request) {
 func (h *Api) handleUserById(w http.ResponseWriter, _ *http.Request, userId int64) {
 	user, err := h.Storage.GetUserById(userId)
 	if err != nil {
-		log.Printf("Failed to get user %d by ID: %v", userId, err)
+		slog.Error("Failed to get user by ID", "userId", userId, "error", err)
 		h.writeError(w, serverError)
 		return
 	}
 	if user == nil {
-		log.Printf("Unknown user id %d", userId)
+		slog.Warn("Unknown user id passed", "userId", userId)
 		h.writeError(w, pathNotFoundError)
 		return
 	}
@@ -273,7 +273,7 @@ func (h *Api) handleUserClimbs(w http.ResponseWriter, r *http.Request) {
 
 	climbs, err := h.Storage.FetchUserClimbs(userId)
 	if err != nil {
-		log.Printf("Failed to fetch climbs for user %d: %v", userId, err)
+		slog.Error("Failed to fetch climbs for user", "userId", userId, "error", err)
 		h.writeError(w, serverError)
 		return
 	}
@@ -283,7 +283,7 @@ func (h *Api) handleUserClimbs(w http.ResponseWriter, r *http.Request) {
 func (h *Api) writeJSON(w http.ResponseWriter, data interface{}) {
 	jsonResp, err := json.Marshal(data)
 	if err != nil {
-		log.Printf("Error marshalling response: %v", err)
+		slog.Error("Error marshalling response", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}

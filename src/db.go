@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -128,14 +128,14 @@ func Migrate(db *sql.DB) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("Executing migration %s\n", m.Name)
+		slog.Info("Executing migration", "name", m.Name)
 		for _, stmt := range m.Queries {
 			_, err = tx.Exec(stmt)
 			if err != nil {
 				rollbackErr = tx.Rollback()
 				if rollbackErr != nil {
 					// log rollback error
-					log.Printf("Rollback failed: %v\n", rollbackErr)
+					slog.Error("Rollback failed", "error", rollbackErr)
 				}
 				return fmt.Errorf("statement %s failed with error: %v", stmt, err)
 			}
@@ -145,8 +145,9 @@ func Migrate(db *sql.DB) error {
 		if err != nil {
 			rollbackErr = tx.Rollback()
 			if rollbackErr != nil {
-				log.Printf("Rollback failed: %v\n", rollbackErr)
+				slog.Error("Rollback failed", "error", rollbackErr)
 			}
+			return fmt.Errorf("failed to insert migration %s: %v", m.Name, err)
 		}
 		err = tx.Commit()
 		if err != nil {

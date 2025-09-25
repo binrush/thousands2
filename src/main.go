@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"embed"
+	"fmt"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -43,7 +44,8 @@ func NewAppServer(conf *RuntimeConfig, storage *Storage, sm *scs.SessionManager,
 	// Get the embedded filesystem
 	fsys, err := fs.Sub(uiFS, "ui/dist")
 	if err != nil {
-		log.Fatalf("Failed to get UI subdirectory: %v", err)
+		slog.Error("Failed to get UI subdirectory", "error", err)
+		os.Exit(1)
 	}
 
 	// Create a file server for static assets
@@ -96,8 +98,12 @@ func serveIndexHTML(w http.ResponseWriter, fsys fs.FS) {
 }
 
 func main() {
+	// Initialize logger first
+	initLogger()
+
 	if len(os.Args) != 3 {
-		log.Fatal("Usage: api <datadir> <db_path>")
+		fmt.Println("Usage: api <datadir> <db_path>")
+		os.Exit(1)
 	}
 
 	conf := &RuntimeConfig{
@@ -111,35 +117,39 @@ func main() {
 		S3_ENDPOINT,
 		context.Background())
 	if err != nil {
-		log.Fatalf("Failed to create image manager: %v", err)
+		slog.Error("Failed to create image manager", "error", err)
+		os.Exit(1)
 	}
 
 	db, err := NewDatabase(path.Clean(os.Args[2]))
 	if err != nil {
-		log.Fatalf("Failed to connect to DB: %v", err)
+		slog.Error("Failed to connect to DB", "error", err)
+		os.Exit(1)
 	}
 
-	log.Printf("Starting migrations...")
+	slog.Info("Starting migrations...")
 	err = Migrate(db)
 	if err != nil {
-		log.Fatalf("Migrations failed: %v", err)
+		slog.Error("Migrations failed", "error", err)
+		os.Exit(1)
 	}
-	log.Printf("Migrations completed")
+	slog.Info("Migrations completed")
 
 	storage := NewStorage(db)
 
-	log.Printf("Loading summits data to database...")
+	slog.Info("Loading summits data to database...")
 	err = storage.LoadSummits(conf.Datadir)
 	if err != nil {
-		log.Fatalf("Failed to load summits: %v", err)
+		slog.Error("Failed to load summits", "error", err)
+		os.Exit(1)
 	}
-	log.Printf("Summits data loaded")
+	slog.Info("Summits data loaded")
 
 	sm := scs.New()
 	sm.Store = sqlite3store.New(db)
 
 	app := NewAppServer(conf, storage, sm, imageManager)
 
-	log.Println("Server starting on :5000")
-	log.Fatal(http.ListenAndServe(":5000", app.router))
+	slog.Info("Server starting on :5000")
+	slog.Error("Server stopped", "error", http.ListenAndServe(":5000", app.router))
 }

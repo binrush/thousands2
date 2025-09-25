@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -123,7 +123,7 @@ func (provider *VKProvider) Register(token *oauth2.Token, storage *Storage, ctx 
 				defer wg.Done()
 				imageData, err := downloadImage(*oauthClient, img.url)
 				if err != nil {
-					log.Printf("Failed to load image for user %d: %v", userId, err)
+					slog.Error("Failed to load image for user", "userId", userId, "error", err)
 					return
 				}
 				imageKey := fmt.Sprintf("users/%d_%s.jpg", userId, img.size)
@@ -131,13 +131,13 @@ func (provider *VKProvider) Register(token *oauth2.Token, storage *Storage, ctx 
 				// using background context to allow images to be uploaded after request is finished
 				err = provider.imageManager.Upload(ctx, imageData, imageKey)
 				if err != nil {
-					log.Printf("Failed to upload image to S3 for user %d: %v", userId, err)
+					slog.Error("Failed to upload image to S3 for user", "userId", userId, "error", err)
 					return
 				}
 
 				err = storage.UpdateUserImage(userId, img.size, imageKey)
 				if err != nil {
-					log.Printf("Failed to store image for user %d: %v", userId, err)
+					slog.Error("Failed to store image for user", "userId", userId, "error", err)
 				}
 			}()
 		}

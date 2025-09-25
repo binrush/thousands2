@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 
@@ -93,20 +93,20 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.FormValue("error") != "" {
-		log.Printf("Error returned by oauth provider: %s, %s",
-			r.FormValue("error"), r.FormValue("error_description"))
+		slog.Warn("Error returned by oauth provider",
+			"error", r.FormValue("error"), "description", r.FormValue("error_description"))
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
 	expectedState, ok := h.SM.Pop(r.Context(), OauthStateKey).(string)
 	if !ok {
-		log.Printf("Error: OAuth state not found in session")
+		slog.Warn("OAuth state not found in session")
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 	if expectedState != r.FormValue("state") {
-		log.Printf("Error checking state parameter: value not match")
+		slog.Warn("Error checking state parameter: value not match")
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
@@ -114,21 +114,21 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	token, err := provider.GetConfig().Exchange(r.Context(), code)
 	if err != nil {
-		log.Printf("Error obtaining oauth access token: %s", err)
+		slog.Warn("Error obtaining oauth access token", "error", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
 	oauthUserId, err := provider.GetUserId(token)
 	if err != nil {
-		log.Printf("Failed to obtain oauth user ID: %s", err)
+		slog.Warn("Failed to obtain oauth user ID", "error", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
 	user, err := h.Storage.GetUser(oauthUserId, provider.GetSrcId())
 	if err != nil {
-		log.Printf("Failed to obtain user data from DB: %v", err)
+		slog.Error("Failed to obtain user data from DB", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -141,7 +141,7 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 		// user does not exist yet, register
 		userId, err = provider.Register(token, h.Storage, r.Context())
 		if err != nil {
-			log.Printf("Failed to register user: %v", err)
+			slog.Error("Failed to register user", "error", err)
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
@@ -161,7 +161,7 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 func (h *AuthServer) handleLogout(w http.ResponseWriter, r *http.Request) {
 	err := h.SM.Destroy(r.Context())
 	if err != nil {
-		log.Printf("Failed to destroy session data: %v", err)
+		slog.Error("Failed to destroy session data", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
