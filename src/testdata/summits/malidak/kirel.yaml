@@ -3,6 +3,7 @@ coordinates:
 - 58.2311
 description: Лесистая с очень крутыми склонами, курумов мало.
 height: 1162
+prominence: 15
 images:
 - comment: С Отнурка
   preview_url: summits/kirel_s_otnurka_0_preview.jpg

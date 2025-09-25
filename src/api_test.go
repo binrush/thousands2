@@ -41,6 +41,11 @@ func MockDatabase(t *testing.T) *sql.DB {
 	db, err := NewDatabase(path)
 	require.NoError(t, err)
 
+	// Гарантируем, что база данных будет закрыта после завершения теста, чтобы освободить файловые дескрипторы в Windows
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
 	err = Migrate(db)
 	require.NoError(t, err)
 

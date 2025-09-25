@@ -125,6 +125,7 @@ type Summit struct {
 	Interpretation *string       `json:"interpretation"`
 	Description    *string       `json:"description"`
 	Height         int           `json:"height"`
+	Prominence     int           `json:"prominence,omitempty" yaml:"prominence"`
 	Coordinates    [2]float32    `json:"coordinates"`
 	Ridge          *Ridge        `json:"ridge"`
 	Images         []SummitImage `json:"images"`
@@ -228,8 +229,8 @@ func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 	}
 	summitsStmt, err := tx.Prepare(
 		`INSERT INTO summits 
-			(id, ridge_id, name, name_alt, interpretation, description, height, lat, lng)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+			(id, ridge_id, name, name_alt, interpretation, description, height, prominence, lat, lng)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -266,7 +267,7 @@ func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 		_, err = summitsStmt.Exec(
 			summit.Id, ridgeId, summit.Name, summit.NameAlt,
 			summit.Interpretation, summit.Description,
-			summit.Height, summit.Coordinates[0], summit.Coordinates[1])
+			summit.Height, summit.Prominence, summit.Coordinates[0], summit.Coordinates[1])
 		if err != nil {
 			return err
 		}
@@ -506,14 +507,14 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	var err error
 
 	query := `SELECT
-		s.id, s.name, s.name_alt, s.interpretation, s.description, s.height, s.lat, s.lng,
+		s.id, s.name, s.name_alt, s.interpretation, s.description, s.height, s.prominence, s.lat, s.lng,
 		r.id, r.name, r.color
 	FROM summits s INNER JOIN ridges r ON s.ridge_id = r.id
 	WHERE s.id = ?
 	`
 	if err = s.db.QueryRow(query, summitId).Scan(&summit.Id,
 		&summit.Name, &summit.NameAlt, &summit.Interpretation,
-		&summit.Description, &summit.Height, &summit.Coordinates[0], &summit.Coordinates[1],
+		&summit.Description, &summit.Height, &summit.Prominence, &summit.Coordinates[0], &summit.Coordinates[1],
 		&summit.Ridge.Id, &summit.Ridge.Name, &summit.Ridge.Color,
 	); err != nil {
 		if err == sql.ErrNoRows { // теоретически не должно случиться после проверки, но обработаем

@@ -3,6 +3,7 @@ coordinates:
 - 58.2915
 description: Группа скал, расположенных дугой
 height: 1152
+prominence: 45
 images:
 - comment: С Отнурка
   preview_url: summits/malinovaja_s_otnurka_0_preview.jpg
