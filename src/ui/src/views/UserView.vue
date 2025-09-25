@@ -102,7 +102,9 @@ onMounted(() => {
       </div>
 
       <!-- Climbs Section -->
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">Восхождения</h2>
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">
+        Восхождения <span v-if="climbs.length > 0" class="text-sm font-normal text-gray-500">({{ climbs.length }})</span>
+      </h2>
       <div v-if="!climbs.length" class="text-center text-gray-500">
         Пока нет зарегистрированных восхождений
       </div>
