@@ -126,6 +126,7 @@ func (h *Api) handleSummitPut(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, serverError)
 		return
 	}
+	slog.Info("Climb updated", "userId", userId, "summitId", summit.Id, "date", date, "comment", comment)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -144,6 +145,7 @@ func (h *Api) handleSummitDelete(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, serverError)
 		return
 	}
+	slog.Info("Climb deleted", "userId", userId, "summitId", summitId)
 
 	w.WriteHeader(http.StatusOK)
 }

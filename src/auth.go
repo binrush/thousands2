@@ -148,7 +148,7 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.SM.Put(r.Context(), UserIdKey, userId)
-
+	slog.Info("User logged in", "userId", userId, "provider", providerName)
 	// Get the redirect URL from session, default to /user/me if not set
 	redirectURL := "/user/me"
 	if storedRedirect, ok := h.SM.Pop(r.Context(), RedirectKey).(string); ok && storedRedirect != "" {
@@ -159,11 +159,13 @@ func (h *AuthServer) handleAuthorized(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthServer) handleLogout(w http.ResponseWriter, r *http.Request) {
+	userId := h.SM.GetInt64(r.Context(), UserIdKey)
 	err := h.SM.Destroy(r.Context())
 	if err != nil {
 		slog.Error("Failed to destroy session data", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	slog.Info("User logged out", "userId", userId)
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }

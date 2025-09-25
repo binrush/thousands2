@@ -102,12 +102,14 @@ func (provider *VKProvider) Register(token *oauth2.Token, storage *Storage, ctx 
 	}
 	userData := vkResponse.Response[0]
 	var userId int64
+	userName := fmt.Sprintf("%s %s", userData.FirstName, userData.LastName)
 	userId, err = storage.CreateUser(
-		fmt.Sprintf("%s %s", userData.FirstName, userData.LastName),
+		userName,
 		strconv.Itoa(userData.Id), provider.GetSrcId())
 	if err != nil {
 		return 0, err
 	}
+	slog.Info("User created", "userId", userId, "provider", "vk", "name", userName)
 	// load images. If download failed, just log it and proceed
 	if userData.HasPhoto > 0 {
 		wg := sync.WaitGroup{}
@@ -217,6 +219,8 @@ func (p *SUAuthProvider) Register(token *oauth2.Token, storage *Storage, ctx con
 	if err != nil {
 		return 0, err
 	}
+
+	slog.Info("User created", "userId", userId, "provider", "su", "name", name)
 	return userId, nil
 }
 
