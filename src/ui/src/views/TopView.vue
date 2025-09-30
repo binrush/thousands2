@@ -7,7 +7,7 @@
       <ul v-else>
         <li v-for="climber in topClimbers.items" :key="climber.user_id"
           class="flex items-center py-3 border-b last:border-b-0">
-          <div class="w-8 h-8 flex items-center justify-center text-blue-600 rounded-full mr-4 font-bold text-xl">
+          <div class="w-12 h-8 flex items-center justify-center text-blue-600 rounded-full mr-4 font-bold text-xl">
             {{ climber.place }}
           </div>
           <div class="w-10 h-10 mr-4">
