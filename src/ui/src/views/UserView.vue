@@ -72,6 +72,17 @@ watch(() => route.params.user_id, () => {
   loadUser()
 })
 
+function getSocialLinkText(src) {
+  switch(src) {
+    case 1:
+      return 'Профиль VK'
+    case 2:
+      return 'Профиль southural.ru'
+    default:
+      return 'Социальная сеть'
+  }
+}
+
 onMounted(() => {
   loadUser()
 })
@@ -98,7 +109,13 @@ onMounted(() => {
             class="h-12 w-12 rounded-full object-cover">
           <img v-else src="/climber_no_photo.svg" :alt="user.name" class="h-12 w-12 rounded-full">
         </div>
-        <h1 class="text-2xl font-bold text-gray-900">{{ user.name }}</h1>
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">{{ user.name }}</h1>
+          <a v-if="user.social_link" :href="user.social_link" target="_blank" rel="noopener noreferrer"
+            class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+            {{ getSocialLinkText(user.src) }}
+          </a>
+        </div>
       </div>
 
       <!-- Climbs Section -->

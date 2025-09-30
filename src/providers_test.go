@@ -198,12 +198,13 @@ func TestVKRegister(t *testing.T) {
 	}
 
 	expectedUser := User{
-		Id:      userId,
-		OauthId: MockOauthUserId,
-		Src:     1,
-		Name:    MockUserName,
-		ImageS:  "users/13_S.jpg",
-		ImageM:  "users/13_M.jpg",
+		Id:         userId,
+		OauthId:    MockOauthUserId,
+		Src:        1,
+		Name:       MockUserName,
+		ImageS:     "users/13_S.jpg",
+		ImageM:     "users/13_M.jpg",
+		SocialLink: "https://vk.com/id2343",
 	}
 	if *user != expectedUser {
 		t.Fatalf("Unexpected user created: %v, expected %v", *user, expectedUser)

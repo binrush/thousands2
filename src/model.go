@@ -181,12 +181,13 @@ type Top struct {
 }
 
 type User struct {
-	Id      int64  `json:"id"`
-	OauthId string `json:"oauth_id"`
-	Src     int    `json:"src"`
-	Name    string `json:"name"`
-	ImageS  string `json:"image_s"`
-	ImageM  string `json:"image_m"`
+	Id         int64  `json:"id"`
+	OauthId    string `json:"oauth_id"`
+	Src        int    `json:"src"`
+	Name       string `json:"name"`
+	ImageS     string `json:"image_s"`
+	ImageM     string `json:"image_m"`
+	SocialLink string `json:"social_link"`
 }
 
 type SummitClimb struct {
@@ -621,6 +622,17 @@ func (s *Storage) CreateUser(Name, OauthId string, Src int) (int64, error) {
 	return userId, nil
 }
 
+func generateSocialLink(oauthId string, src int) string {
+	switch src {
+	case AuthSrcVK:
+		return fmt.Sprintf("https://vk.com/id%s", oauthId)
+	case AuthSrcSU:
+		return fmt.Sprintf("http://www.southural.ru/user/%s", oauthId)
+	default:
+		return ""
+	}
+}
+
 func (s *Storage) getUser(row *sql.Row) (*User, error) {
 	var user User
 	err := row.Scan(&user.Id, &user.Name, &user.OauthId, &user.Src)
@@ -638,6 +650,7 @@ func (s *Storage) getUser(row *sql.Row) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
+	user.SocialLink = generateSocialLink(user.OauthId, user.Src)
 	return &user, nil
 }
 
