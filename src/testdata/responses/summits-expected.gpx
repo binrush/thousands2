@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="Тысячники Южного Урала">
+<metadata>
+<author></author>
+</metadata>
+<wpt lat="54.1870002747" lon="58.4654006958">
+<ele>1021</ele>
+<name>1021</name>
+<desc>хр. Столбы</desc>
+</wpt>
+<wpt lat="54.0285987854" lon="58.231098175">
+<ele>1162</ele>
+<name>kirel</name>
+<desc>хр. Малидак</desc>
+</wpt>
+<wpt lat="53.801399231" lon="58.7019996643">
+<ele>1008</ele>
+<name>kurkak</name>
+<desc>хр. Куркак</desc>
+</wpt>
+<wpt lat="54.0205993652" lon="58.2915000916">
+<ele>1152</ele>
+<name>malinovaja</name>
+<desc>хр. Малидак</desc>
+</wpt>
+<wpt lat="54.198600769" lon="58.4818000793">
+<ele>1026</ele>
+<name>stolby</name>
+<desc>хр. Столбы</desc>
+</wpt>
+</gpx>

@@ -100,9 +100,9 @@ watch(
   <div class="max-w-screen-md mx-auto overflow-hidden">
     <h1 class="text-2xl font-bold text-gray-900 mb-6">Все вершины Южного Урала выше тысячи метров</h1>
 
-    <!-- Search -->
-    <div class="mb-6">
-      <div class="relative">
+    <!-- Search and GPX button -->
+    <div class="flex gap-2 mb-6">
+      <div class="relative flex-1">
         <input type="text" v-model="search" placeholder="Поиск по названию или хребту..."
           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
         <button v-if="search" @click="resetSearch"
@@ -114,6 +114,13 @@ watch(
           </svg>
         </button>
       </div>
+      <a href="/api/summits/gpx" 
+         class="inline-flex items-center px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 whitespace-nowrap transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        GPX
+      </a>
     </div>
 
     <!-- Table -->

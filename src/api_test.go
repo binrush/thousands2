@@ -17,6 +17,7 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tkrajina/gpxgo/gpx"
 )
 
 func AreEqualJSON(s1, s2 string) (bool, error) {
@@ -376,4 +377,50 @@ func TestSummitDeleteHandlerUnauthenticated(t *testing.T) {
 
 	app.router.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusUnauthorized, rr.Code, "handler returned wrong status code")
+}
+
+func TestSummitsGPXHandler(t *testing.T) {
+	conf := &RuntimeConfig{
+		Datadir:      "testdata/summits",
+		ItemsPerPage: 5,
+	}
+	app := GetMockApp(t, 0, conf)
+
+	req, err := http.NewRequest("GET", "/api/summits/gpx", nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	app.router.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+	require.Equal(t, "application/gpx+xml", rr.Header().Get("Content-Type"), "Wrong Content-Type header for GPX")
+	require.Equal(t, "attachment; filename=summits.gpx", rr.Header().Get("Content-Disposition"), "Wrong Content-Disposition header for GPX")
+
+	// Parse actual GPX response
+	actualGPX, err := gpx.ParseString(rr.Body.String())
+	require.NoError(t, err, "Failed to parse actual GPX response")
+
+	// Read and parse expected GPX file
+	expectedData, err := os.ReadFile("testdata/responses/summits-expected.gpx")
+	require.NoError(t, err, "Failed to read expected GPX file")
+
+	expectedGPX, err := gpx.ParseString(string(expectedData))
+	require.NoError(t, err, "Failed to parse expected GPX file")
+
+	// Compare GPX structures
+	assert.Equal(t, expectedGPX.Version, actualGPX.Version, "GPX version mismatch")
+	assert.Equal(t, expectedGPX.Creator, actualGPX.Creator, "GPX creator mismatch")
+	assert.Equal(t, len(expectedGPX.Waypoints), len(actualGPX.Waypoints), "Number of waypoints mismatch")
+
+	// Compare each waypoint
+	for i, expectedWpt := range expectedGPX.Waypoints {
+		require.Less(t, i, len(actualGPX.Waypoints), "Not enough waypoints in actual response")
+		actualWpt := actualGPX.Waypoints[i]
+
+		assert.Equal(t, expectedWpt.Latitude, actualWpt.Latitude, "Waypoint %d latitude mismatch", i)
+		assert.Equal(t, expectedWpt.Longitude, actualWpt.Longitude, "Waypoint %d longitude mismatch", i)
+		assert.Equal(t, expectedWpt.Elevation.Value(), actualWpt.Elevation.Value(), "Waypoint %d elevation mismatch", i)
+		assert.Equal(t, expectedWpt.Name, actualWpt.Name, "Waypoint %d name mismatch", i)
+		assert.Equal(t, expectedWpt.Description, actualWpt.Description, "Waypoint %d description mismatch", i)
+	}
 }

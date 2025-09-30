@@ -9,6 +9,7 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
+	"github.com/tkrajina/gpxgo/gpx"
 )
 
 const (
@@ -52,6 +53,7 @@ func NewApi(config *RuntimeConfig, storage *Storage, sm *scs.SessionManager) *Ap
 	api.router.Delete("/summit/{ridgeId}/{summitId}", api.handleSummitDelete)
 	api.router.Get("/summit/{ridgeId}/{summitId}/climbs", api.handleSummitClimbs)
 	api.router.Get("/summits", api.handleSummits)
+	api.router.Get("/summits/gpx", api.handleSummitsGPX)
 	api.router.Get("/top", api.handleTop)
 	api.router.Get("/user/me", api.handleUserMe)
 	api.router.Get("/user/{userId}", api.handleUser)
@@ -204,6 +206,52 @@ func (h *Api) handleSummits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.writeJSON(w, summits)
+}
+
+func (h *Api) handleSummitsGPX(w http.ResponseWriter, r *http.Request) {
+	userId := h.SM.GetInt64(r.Context(), UserIdKey)
+	summits, err := h.Storage.FetchSummits(userId)
+	if err != nil {
+		slog.Error("Failed to fetch summits from db", "error", err)
+		h.writeError(w, serverError)
+		return
+	}
+
+	// Create GPX structure
+	gpxData := gpx.GPX{
+		Version: "1.1",
+		Creator: "Тысячники Южного Урала",
+	}
+
+	// Convert summits to GPX waypoints
+	for _, summit := range summits.Summits {
+		description := fmt.Sprintf("хр. %s", summit.RidgeName)
+		waypoint := gpx.GPXPoint{
+			Point: gpx.Point{
+				Latitude:  float64(summit.Lat),
+				Longitude: float64(summit.Lng),
+				Elevation: *gpx.NewNullableFloat64(float64(summit.Height)),
+			},
+			Name:        summit.Id,
+			Description: description,
+		}
+		gpxData.AppendWaypoint(&waypoint)
+	}
+
+	// Convert to XML
+	gpxXML, err := gpxData.ToXml(gpx.ToXmlParams{Version: "1.1", Indent: true})
+	if err != nil {
+		slog.Error("Failed to generate GPX XML", "error", err)
+		h.writeError(w, serverError)
+		return
+	}
+
+	// Set response headers
+	w.Header().Set("Content-Type", "application/gpx+xml")
+	w.Header().Set("Content-Disposition", "attachment; filename=summits.gpx")
+
+	// Write GPX XML to response
+	w.Write(gpxXML)
 }
 
 func (h *Api) handleTop(w http.ResponseWriter, r *http.Request) {
