@@ -14,6 +14,7 @@ Environment="SU_CLIENT_ID={{ su_client_id }}"
 Environment="SU_CLIENT_SECRET={{ su_client_secret }}"
 Environment="S3_ACCESS_KEY={{ s3_access_key }}"
 Environment="S3_SECRET_KEY={{ s3_secret_key }}"
+ExecStartPre=/opt/thousands2/backup.sh /opt/thousands2/backup /opt/thousands2/thousands.db
 ExecStart=/opt/thousands2/thousands2 /opt/thousands2/thousands-data/data /opt/thousands2/thousands.db
 Restart=always
 RestartSec=5

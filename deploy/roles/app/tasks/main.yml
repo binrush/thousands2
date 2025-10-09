@@ -33,6 +33,23 @@
     mode: '0755'
   notify: restart thousands2
 
+- name: Deploy backup script
+  copy:
+    src: backup.sh
+    dest: /opt/thousands2/backup.sh
+    owner: thousands2
+    group: thousands2
+    mode: '0755'
+  notify: restart thousands2
+
+- name: Create backup directory
+  file:
+    path: /opt/thousands2/backup
+    state: directory
+    owner: thousands2
+    group: thousands2
+    mode: '0755'
+
 - name: Create systemd service
   template:
     src: thousands2.service.j2
