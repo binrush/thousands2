@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { getImageUrl } from '../utils/images'
 import { formatRussianDate } from '../utils/dates'
 import Pagination from '../components/Pagination.vue'
+import ProminenceTooltip from '../components/ProminenceTooltip.vue'
 import { usePagination } from '../composables/usePagination'
 
 const route = useRoute()
@@ -130,21 +131,7 @@ const closeCommentModal = () => {
               class="mt-1 flex items-center"
             >
               <span class="text-gray-700">Превышение: {{ summit.prominence }}м</span>
-              <VDropdown :distance="8">
-                <button
-                  type="button"
-                  class="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-gray-700 text-xs hover:bg-gray-300 active:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  aria-label="Что такое видность?"
-                >
-                  ?
-                </button>
-                <template #popper>
-                  <div class="p-3 max-w-xs">
-                    <div class="font-medium mb-1">Превышение (относительная высота)</div>
-                    <div>Высота вершины над высшей седловиной, соединяющей её с более высокой вершиной. Помогает оценить «самостоятельность» вершины относительно окружающего рельефа.</div>
-                  </div>
-                </template>
-              </VDropdown>
+              <ProminenceTooltip />
             </div>
 
             <div class="mt-2">

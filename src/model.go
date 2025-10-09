@@ -147,9 +147,10 @@ func (s *Summit) JSON() ([]byte, error) {
 }
 
 type SummitsTableItem struct {
-	Id     string  `json:"id"`
-	Name   *string `json:"name"`
-	Height int     `json:"height"`
+	Id         string  `json:"id"`
+	Name       *string `json:"name"`
+	Height     int     `json:"height"`
+	Prominence int     `json:"prominence,omitempty"`
 	// Latitude is needed for sorting
 	Lat       float32 `json:"lat"`
 	Lng       float32 `json:"lng"`
@@ -374,7 +375,7 @@ func (s *Storage) LoadSummits(dataDir string) error {
 
 func (s *Storage) FetchSummits(userId int64) (*SummitsTable, error) {
 	summits := make([]SummitsTableItem, 0)
-	query := `SELECT s.id, s.name, s.height, s.lat, s.lng, r.name, r.id, r.color, COUNT(c.user_id), 
+	query := `SELECT s.id, s.name, s.height, s.prominence, s.lat, s.lng, r.name, r.id, r.color, COUNT(c.user_id), 
 			ROW_NUMBER() OVER (ORDER BY s.height DESC) as rank,
 			EXISTS(
 				SELECT * FROM 
@@ -395,7 +396,7 @@ func (s *Storage) FetchSummits(userId int64) (*SummitsTable, error) {
 		FROM ridges r 
 			INNER JOIN summits s ON r.id = s.ridge_id
 			LEFT JOIN climbs c ON c.summit_id = s.id
-		GROUP BY s.id, s.name, s.height, s.lat, r.name
+		GROUP BY s.id, s.name, s.height, s.prominence, s.lat, r.name
 		ORDER BY s.id
 	`
 	rows, err := s.db.Query(query, userId)
@@ -406,7 +407,7 @@ func (s *Storage) FetchSummits(userId int64) (*SummitsTable, error) {
 	for rows.Next() {
 		var s SummitsTableItem
 		err := rows.Scan(
-			&s.Id, &s.Name, &s.Height, &s.Lat, &s.Lng,
+			&s.Id, &s.Name, &s.Height, &s.Prominence, &s.Lat, &s.Lng,
 			&s.RidgeName, &s.RidgeId, &s.Color, &s.Visitors,
 			&s.Rank, &s.IsMain, &s.Climbed,
 		)

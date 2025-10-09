@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import ProminenceTooltip from '../components/ProminenceTooltip.vue'
 
 const summits = ref(null)
 const sort_col = ref("ridge")
@@ -72,8 +73,13 @@ const filteredSummits = computed(() => {
   if (sort_col.value === "ridge") {
     result.sort(sort_by_ridge)
   }
-  if (["height", "visitors"].includes(sort_col.value)) {
-    result.sort((a, b) => b[sort_col.value] - a[sort_col.value])
+  if (["height", "visitors", "prominence"].includes(sort_col.value)) {
+    result.sort((a, b) => {
+      // Handle null/undefined prominence values
+      const aVal = a[sort_col.value] || 0
+      const bVal = b[sort_col.value] || 0
+      return bVal - aVal
+    })
   }
   if (sort_col.value === "name") {
     result.sort(sort_by_name)
@@ -137,6 +143,13 @@ watch(
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
               Высота
             </th>
+            <th @click="updateSort('prominence')"
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+              <div class="inline-flex items-center">
+                Превышение
+                <ProminenceTooltip size="small" />
+              </div>
+            </th>
             <th @click="updateSort('ridge')"
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
               Хребет
@@ -167,6 +180,10 @@ watch(
             <td class="px-6 py-4 whitespace-nowrap">
               <span :class="{ 'font-bold': summit.is_main }">{{ summit.height }}</span>
               <span v-if="summit.rank" class="text-xs text-gray-500 ml-1">{{ summit.rank }}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-gray-900">
+              <span v-if="summit.prominence && summit.prominence > 0">{{ summit.prominence }}</span>
+              <span v-else class="text-gray-400">—</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-gray-900">
               {{ summit.ridge }}
