@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../auth'
 import { getImageUrl } from '../utils/images'
@@ -21,12 +21,17 @@ const totalClimbs = ref(0)
 const climbersSection = ref(null)
 const showCommentModal = ref(false)
 const selectedComment = ref(null)
+const selectedImageIndex = ref(0)
+const showLightbox = ref(false)
+const lightboxImageIndex = ref(0)
 
 // Watch for summit data changes to update page title
 watch(summit, (newSummit) => {
   if (newSummit) {
     const title = newSummit.name || newSummit.height
     document.title = `${title}, хр. ${newSummit.ridge.name} | Тысячники Южного Урала`
+    // Reset selected image when summit changes
+    selectedImageIndex.value = 0
   }
 }, { immediate: true })
 
@@ -87,6 +92,14 @@ onMounted(async () => {
   if (summitId) {
     fetchClimbs(currentPage.value, summitId)
   }
+  
+  // Add keyboard event listener for lightbox
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  // Clean up keyboard event listener
+  window.removeEventListener('keydown', handleKeydown)
 })
 
 const openCommentModal = (climb) => {
@@ -97,6 +110,43 @@ const openCommentModal = (climb) => {
 const closeCommentModal = () => {
   showCommentModal.value = false
   selectedComment.value = null
+}
+
+const selectImage = (index) => {
+  selectedImageIndex.value = index
+}
+
+const openLightbox = (index) => {
+  lightboxImageIndex.value = index
+  showLightbox.value = true
+}
+
+const closeLightbox = () => {
+  showLightbox.value = false
+}
+
+const nextImage = () => {
+  if (summit.value?.images && lightboxImageIndex.value < summit.value.images.length - 1) {
+    lightboxImageIndex.value++
+  }
+}
+
+const prevImage = () => {
+  if (lightboxImageIndex.value > 0) {
+    lightboxImageIndex.value--
+  }
+}
+
+const handleKeydown = (e) => {
+  if (!showLightbox.value) return
+  
+  if (e.key === 'Escape') {
+    closeLightbox()
+  } else if (e.key === 'ArrowRight') {
+    nextImage()
+  } else if (e.key === 'ArrowLeft') {
+    prevImage()
+  }
 }
 </script>
 
@@ -180,11 +230,35 @@ const closeCommentModal = () => {
           </div>
         </div>
 
-        <div class="w-full h-64 lg:w-1/2 lg:h-auto">
-          <img v-if="summit.images && summit.images.length > 0 && summit.images[0].url"
-            :src="getImageUrl(summit.images[0].url)" :alt="summit.name || 'Вершина'"
-            class="w-full h-full object-cover rounded-lg" />
-          <div v-else class="w-full h-full bg-gray-200 flex items-center justify-center">
+        <div class="w-full lg:w-1/2 lg:h-auto">
+          <div v-if="summit.images && summit.images.length > 0">
+            <!-- Main Image -->
+            <div class="h-64 lg:h-96 cursor-pointer" @click="openLightbox(selectedImageIndex)">
+              <img 
+                :src="getImageUrl(summit.images[selectedImageIndex].url)" 
+                :alt="summit.name || 'Вершина'"
+                class="w-full h-full object-cover rounded-lg hover:opacity-95 transition-opacity" 
+              />
+            </div>
+            
+            <!-- Thumbnail Strip (only show if more than 1 image) -->
+            <div v-if="summit.images.length > 1" class="mt-3 flex gap-2 overflow-x-auto pb-2">
+              <button
+                v-for="(image, index) in summit.images"
+                :key="index"
+                @click="openLightbox(index)"
+                class="flex-shrink-0 w-20 h-20 rounded-md overflow-hidden border-2 border-gray-300 hover:border-gray-400 transition-all cursor-pointer"
+              >
+                <img 
+                  :src="getImageUrl(image.url)" 
+                  :alt="`Миниатюра ${index + 1}`"
+                  class="w-full h-full object-cover"
+                />
+              </button>
+            </div>
+          </div>
+          
+          <div v-else class="h-64 lg:h-96 bg-gray-200 flex items-center justify-center rounded-lg">
             <span class="text-gray-400 text-lg font-medium">Нет изображения</span>
           </div>
         </div>
@@ -279,6 +353,73 @@ const closeCommentModal = () => {
             {{ selectedComment.comment }}
           </div>
         </div>
+      </div>
+    </teleport>
+
+    <!-- Image Lightbox -->
+    <teleport to="body">
+      <div v-if="showLightbox && summit?.images"
+           class="fixed inset-0 w-screen h-screen bg-black bg-opacity-95 flex items-center justify-center z-50"
+           @click="closeLightbox">
+        
+        <!-- Close Button -->
+        <button 
+          @click="closeLightbox"
+          class="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+        >
+          <span class="sr-only">Закрыть</span>
+          <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <!-- Image Counter -->
+        <div class="absolute top-4 left-4 text-white text-lg font-medium z-10">
+          {{ lightboxImageIndex + 1 }} / {{ summit.images.length }}
+        </div>
+
+        <!-- Previous Button -->
+        <button
+          v-if="lightboxImageIndex > 0"
+          @click.stop="prevImage"
+          class="absolute left-4 text-white hover:text-gray-300 z-10 p-2"
+        >
+          <span class="sr-only">Предыдущее изображение</span>
+          <svg class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <!-- Main Image Container -->
+        <div class="relative w-full h-full flex items-center justify-center px-20 py-16" @click.stop>
+          <div class="relative max-w-full max-h-full">
+            <img 
+              :src="getImageUrl(summit.images[lightboxImageIndex].url)" 
+              :alt="summit.name || 'Вершина'"
+              class="max-w-[calc(100vw-160px)] max-h-[calc(100vh-128px)] object-contain"
+            />
+            
+            <!-- Image Description Overlay -->
+            <div 
+              v-if="summit.images[lightboxImageIndex].comment" 
+              class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-4 text-center"
+            >
+              {{ summit.images[lightboxImageIndex].comment }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Next Button -->
+        <button
+          v-if="lightboxImageIndex < summit.images.length - 1"
+          @click.stop="nextImage"
+          class="absolute right-4 text-white hover:text-gray-300 z-10 p-2"
+        >
+          <span class="sr-only">Следующее изображение</span>
+          <svg class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </div>
     </teleport>
   </div>
