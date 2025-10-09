@@ -103,7 +103,7 @@ watch(
 </script>
 
 <template>
-  <div class="max-w-screen-md mx-auto overflow-hidden">
+  <div class="max-w-screen-lg mx-auto overflow-hidden">
     <h1 class="text-2xl font-bold text-gray-900 mb-6">Все вершины Южного Урала выше тысячи метров</h1>
 
     <!-- Search and GPX button -->
@@ -144,7 +144,7 @@ watch(
               Высота
             </th>
             <th @click="updateSort('prominence')"
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+              class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
               <div class="inline-flex items-center">
                 Превышение
                 <ProminenceTooltip size="small" />
@@ -181,7 +181,7 @@ watch(
               <span :class="{ 'font-bold': summit.is_main }">{{ summit.height }}</span>
               <span v-if="summit.rank" class="text-xs text-gray-500 ml-1">{{ summit.rank }}</span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-gray-900">
+            <td class="px-3 py-4 whitespace-nowrap text-gray-900">
               <span v-if="summit.prominence && summit.prominence > 0">{{ summit.prominence }}</span>
               <span v-else class="text-gray-400">—</span>
             </td>
