@@ -22,6 +22,7 @@
   become_user: thousands2
   environment:
     HOME: /opt/thousands2
+  notify: restart thousands2
 
 - name: Copy application binary
   copy:
