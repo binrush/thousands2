@@ -109,8 +109,9 @@ type Ridge struct {
 }
 
 type SummitImage struct {
-	Url     string `json:"url"`
-	Comment string `json:"comment"`
+	Url        string `json:"url"`
+	PreviewUrl string `json:"preview_url" yaml:"preview_url"`
+	Comment    string `json:"comment"`
 }
 
 type ClimbData struct {
@@ -210,13 +211,13 @@ func NewStorage(db *sql.DB) *Storage {
 func (s *Storage) LoadSummitImages(images []SummitImage, summitId string, tx *sql.Tx) error {
 	imageStmt, err := tx.Prepare(
 		`INSERT INTO summit_images 
-			(url, summit_id, comment) VALUES (?, ?, ?)`)
+			(url, preview_url, summit_id, comment) VALUES (?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer imageStmt.Close()
 	for _, img := range images {
-		_, err = imageStmt.Exec(img.Url, summitId, img.Comment)
+		_, err = imageStmt.Exec(img.Url, img.PreviewUrl, summitId, img.Comment)
 		if err != nil {
 			return fmt.Errorf("failed to load image %s: %v", img.Url, err)
 		}
@@ -420,7 +421,7 @@ func (s *Storage) FetchSummits(userId int64) (*SummitsTable, error) {
 }
 
 func (s *Storage) FetchSummitImages(summit_id string) ([]SummitImage, error) {
-	query := `SELECT url, comment FROM summit_images WHERE summit_id = ?`
+	query := `SELECT url, preview_url, comment FROM summit_images WHERE summit_id = ?`
 	rows, err := s.db.Query(query, summit_id)
 	if err != nil {
 		return nil, err
@@ -429,7 +430,7 @@ func (s *Storage) FetchSummitImages(summit_id string) ([]SummitImage, error) {
 	images := make([]SummitImage, 0)
 	for rows.Next() {
 		var img SummitImage
-		err := rows.Scan(&img.Url, &img.Comment)
+		err := rows.Scan(&img.Url, &img.PreviewUrl, &img.Comment)
 		images = append(images, img)
 		if err != nil {
 			return nil, err

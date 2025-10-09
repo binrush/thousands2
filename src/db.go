@@ -90,6 +90,12 @@ var migrations []Migration = []Migration{
 			`ALTER TABLE summits ADD COLUMN prominence INTEGER NOT NULL DEFAULT 0`,
 		},
 	},
+	{
+		"AddSummitImagePreview",
+		[]string{
+			`ALTER TABLE summit_images ADD COLUMN preview_url TEXT NOT NULL DEFAULT ''`,
+		},
+	},
 }
 
 func NewDatabase(path string) (*sql.DB, error) {

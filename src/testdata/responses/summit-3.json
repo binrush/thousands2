@@ -18,15 +18,18 @@
   "images": [
     {
       "comment": "С Отнурка",
-      "url": "summits/malinovaja_s_otnurka_0.jpg"
+      "url": "summits/malinovaja_s_otnurka_0.jpg",
+      "preview_url": "summits/malinovaja_s_otnurka_0_preview.jpg"
     },
     {
       "comment": "С Отнурка",
-      "url": "summits/malinovaja_s_otnurka_1.jpg"
+      "url": "summits/malinovaja_s_otnurka_1.jpg",
+      "preview_url": "summits/malinovaja_s_otnurka_1_preview.jpg"
     },
     {
       "comment": "Вид с вершины",
-      "url": "summits/malinovaja_vid_s_vershiny_2.jpg"
+      "url": "summits/malinovaja_vid_s_vershiny_2.jpg",
+      "preview_url": "summits/malinovaja_vid_s_vershiny_2_preview.jpg"
     }
   ],
   "climb_data": null

@@ -17,11 +17,13 @@
   "images": [
     {
       "comment": "Вершина",
-      "url": "summits/1021_vershina_0.jpg"
+      "url": "summits/1021_vershina_0.jpg",
+      "preview_url": "summits/1021_vershina_0_preview.jpg"
     },
     {
       "comment": "1",
-      "url": "summits/1021_1_1.jpg"
+      "url": "summits/1021_1_1.jpg",
+      "preview_url": "summits/1021_1_1_preview.jpg"
     }
   ],
   "climb_data": null

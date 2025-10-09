@@ -17,7 +17,8 @@
   "images": [
     {
       "comment": "Вершина",
-      "url": "summits/stolby_vershina_0.jpg"
+      "url": "summits/stolby_vershina_0.jpg",
+      "preview_url": "summits/stolby_vershina_0_preview.jpg"
     }
   ],
   "climb_data": null

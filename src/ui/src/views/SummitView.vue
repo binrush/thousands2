@@ -247,12 +247,12 @@ const handleKeydown = (e) => {
                 v-for="(image, index) in summit.images"
                 :key="index"
                 @click="openLightbox(index)"
-                class="flex-shrink-0 w-20 h-20 rounded-md overflow-hidden border-2 border-gray-300 hover:border-gray-400 transition-all cursor-pointer"
+                class="flex-shrink-0 rounded-md overflow-hidden border-2 border-gray-300 hover:border-gray-400 transition-all cursor-pointer"
               >
                 <img 
-                  :src="getImageUrl(image.url)" 
+                  :src="getImageUrl(image.preview_url || image.url)" 
                   :alt="`Миниатюра ${index + 1}`"
-                  class="w-full h-full object-cover"
+                  class="w-[75px] h-auto object-contain"
                 />
               </button>
             </div>
