@@ -1,8 +1,10 @@
 <script setup>
 import { inject, ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getImageUrl } from '../utils/images'
 import { formatRussianDate } from '../utils/dates'
+import UserAvatar from '../components/UserAvatar.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
+import ErrorMessage from '../components/ErrorMessage.vue'
 const props = defineProps({
   user_id: {
     type: String,
@@ -91,24 +93,19 @@ onMounted(() => {
 <template>
   <div class="max-w-screen-md mx-auto overflow-hidden">
     <!-- Loading State -->
-    <div v-if="isLoading" class="flex justify-center py-8">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    </div>
+    <LoadingSpinner v-if="isLoading" />
 
     <!-- Error State -->
-    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4 text-center text-red-600">
-      {{ error }}
-    </div>
+    <ErrorMessage v-else-if="error" :message="error" />
 
     <!-- Content -->
     <div v-else-if="user" class="space-y-6">
       <!-- User Info Card -->
       <div class="flex items-center space-x-4">
-        <div class="flex-shrink-0">
-          <img v-if="user.image_m" :src="getImageUrl(user.image_m)" :alt="user.name"
-            class="h-12 w-12 rounded-full object-cover">
-          <img v-else src="/climber_no_photo.svg" :alt="user.name" class="h-12 w-12 rounded-full">
-        </div>
+        <UserAvatar 
+          :image-url="user.image_m"
+          :alt-text="user.name"
+        />
         <div>
           <h1 class="text-2xl font-bold text-gray-900">{{ user.name }}</h1>
           <a v-if="user.social_link" :href="user.social_link" target="_blank" rel="noopener noreferrer"

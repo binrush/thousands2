@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import ProminenceTooltip from '../components/ProminenceTooltip.vue'
+import PageHeading from '../components/PageHeading.vue'
 
 const summits = ref(null)
 const sort_col = ref("ridge")
@@ -104,7 +105,7 @@ watch(
 
 <template>
   <div class="max-w-screen-lg mx-auto overflow-hidden">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">Все вершины Южного Урала выше тысячи метров</h1>
+    <PageHeading>Все вершины Южного Урала выше тысячи метров</PageHeading>
 
     <!-- Search and GPX button -->
     <div class="flex gap-2 mb-6">

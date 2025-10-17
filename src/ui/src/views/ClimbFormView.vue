@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
+import ErrorMessage from '../components/ErrorMessage.vue'
+import PageHeading from '../components/PageHeading.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,12 +122,10 @@ onMounted(() => {
 
 <template>
   <div class="max-w-screen-md mx-auto overflow-hidden">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">Регистрация восхождения</h1>
+    <PageHeading>Регистрация восхождения</PageHeading>
 
     <!-- Summit Information -->
-    <div v-if="isLoading" class="flex justify-center py-4">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-    </div>
+    <LoadingSpinner v-if="isLoading" />
 
     <div v-else-if="summit" class="mb-8 bg-white">
       <div class="flex items-center space-x-2">
@@ -202,9 +203,9 @@ onMounted(() => {
       </form>
     </div>
 
-    <div v-else class="text-red-600 text-center py-4">
+    <ErrorMessage v-else>
       Не удалось загрузить информацию о вершине
-    </div>
+    </ErrorMessage>
   </div>
 </template>
 

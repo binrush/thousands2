@@ -1,6 +1,10 @@
+<script setup>
+import PageHeading from '../components/PageHeading.vue'
+</script>
+
 <template>
   <div class="max-w-screen-md mx-auto">
-    <h1 class="text-2xl font-bold mb-6">О проекте</h1>
+    <PageHeading>О проекте</PageHeading>
 
       <p class="mb-4">
         У сайта &laquo;Тысячники Южного Урала&raquo; две основные функции.
@@ -33,10 +37,6 @@
       </p>
   </div>
 </template>
-
-<script setup>
-// No additional logic needed for this view
-</script>
 
 <style scoped>
 </style>

@@ -6,6 +6,9 @@ import { getImageUrl } from '../utils/images'
 import { formatRussianDate } from '../utils/dates'
 import Pagination from '../components/Pagination.vue'
 import ProminenceTooltip from '../components/ProminenceTooltip.vue'
+import UserAvatar from '../components/UserAvatar.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
+import ErrorMessage from '../components/ErrorMessage.vue'
 import { usePagination } from '../composables/usePagination'
 
 const route = useRoute()
@@ -151,13 +154,9 @@ const handleKeydown = (e) => {
 </script>
 
 <template>
-  <div v-if="error" class="text-red-600 text-center py-4">
-    {{ error }}
-  </div>
+  <ErrorMessage v-if="error" :message="error" />
 
-  <div v-else-if="isLoading" class="flex justify-center py-8">
-    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-  </div>
+  <LoadingSpinner v-else-if="isLoading" />
 
   <div v-else class="space-y-8">
     <!-- Summit Information -->
@@ -281,11 +280,10 @@ const handleKeydown = (e) => {
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           <div v-for="climb in climbs" :key="climb.user_id" class="flex items-start space-x-3 p-3 h-[100px]">
             <!-- Avatar -->
-            <div class="flex-shrink-0">
-              <img v-if="climb.user_image" :src="getImageUrl(climb.user_image)" :alt="climb.user_name"
-                class="h-12 w-12 rounded-full object-cover">
-              <img v-else src="/climber_no_photo.svg" :alt="climb.user_name" class="h-12 w-12 rounded-full">
-            </div>
+            <UserAvatar 
+              :image-url="climb.user_image"
+              :alt-text="climb.user_name"
+            />
 
             <!-- User Info -->
             <div class="flex-1 min-w-0 overflow-hidden">
@@ -325,14 +323,10 @@ const handleKeydown = (e) => {
         <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4" @click.stop>
           <div class="flex justify-between items-start mb-4">
             <div class="flex items-center space-x-3">
-              <img v-if="selectedComment?.user_image" 
-                   :src="getImageUrl(selectedComment.user_image)" 
-                   :alt="selectedComment?.user_name"
-                   class="h-12 w-12 rounded-full object-cover">
-              <img v-else 
-                   src="/climber_no_photo.svg" 
-                   :alt="selectedComment?.user_name" 
-                   class="h-12 w-12 rounded-full">
+              <UserAvatar 
+                :image-url="selectedComment?.user_image"
+                :alt-text="selectedComment?.user_name || ''"
+              />
               <div>
                 <h3 class="text-lg font-medium text-gray-900">
                   {{ selectedComment?.user_name }}

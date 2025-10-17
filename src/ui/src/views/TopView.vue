@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-screen-md mx-auto overflow-hidden">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Рейтинг восходителей</h1>
+      <PageHeading>Рейтинг восходителей</PageHeading>
       <div v-if="!topClimbers.items.length" class="text-center text-gray-500 py-8">
         Нет данных для отображения
       </div>
@@ -10,13 +10,12 @@
           <div class="w-12 h-8 flex items-center justify-center text-blue-600 rounded-full mr-4 font-bold text-xl">
             {{ climber.place }}
           </div>
-          <div class="w-10 h-10 mr-4">
-            <RouterLink :to="`/user/${climber.user_id}`">
-              <img v-if="climber.user_image" :src="getImageUrl(climber.user_image)" :alt="climber.user_name"
-                class="w-full h-full object-cover rounded-full">
-              <img v-else src="/climber_no_photo.svg" :alt="climber.user_name"
-                class="w-full h-full object-cover rounded-full">
-            </RouterLink>
+          <div class="mr-4">
+            <UserAvatar 
+              :image-url="climber.user_image"
+              :alt-text="climber.user_name"
+              :to="`/user/${climber.user_id}`"
+            />
           </div>
           <div class="flex-grow flex items-center">
             <RouterLink :to="`/user/${climber.user_id}`"
@@ -36,8 +35,9 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { getImageUrl } from '../utils/images'
 import Pagination from '../components/Pagination.vue'
+import UserAvatar from '../components/UserAvatar.vue'
+import PageHeading from '../components/PageHeading.vue'
 import { usePagination } from '../composables/usePagination'
 
 const topClimbers = ref({
