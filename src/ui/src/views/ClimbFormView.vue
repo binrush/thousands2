@@ -28,6 +28,15 @@ function formatDateToString(date) {
   return parts.join('.')
 }
 
+// Function to handle date picker selection
+function onDatePickerChange(event) {
+  const dateValue = event.target.value // Format: yyyy-mm-dd
+  if (dateValue) {
+    const [year, month, day] = dateValue.split('-')
+    formData.value.date = `${day}.${month}.${year}`
+  }
+}
+
 async function fetchSummit() {
   try {
     const requestedId = route.params.summit_id
@@ -134,9 +143,26 @@ onMounted(() => {
             <div class="space-y-6">
               <div class="form-group">
                 <label for="date" class="block text-sm text-gray-500 dark:text-gray-300">Дата восхождения</label>
-                <input id="date" type="text" v-model="formData.date"
-                  class="block mt-2 w-full placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-blue-300 disabled:bg-gray-100 disabled:text-gray-500"
-                  placeholder="дд.мм.гггг">
+                <div class="relative mt-2">
+                  <input id="date" type="text" v-model="formData.date"
+                    class="block w-full placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border border-gray-200 bg-white px-5 py-2.5 pr-12 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-blue-300 disabled:bg-gray-100 disabled:text-gray-500"
+                    placeholder="дд.мм.гггг">
+                  <button type="button" 
+                    @click="$refs.datePicker.showPicker()"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-500 hover:text-blue-600 focus:outline-none"
+                    :disabled="isLoading"
+                    title="Выбрать дату">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  <input 
+                    ref="datePicker"
+                    type="date" 
+                    @change="onDatePickerChange"
+                    class="absolute opacity-0 pointer-events-none"
+                    tabindex="-1">
+                </div>
                 <p class="mt-2 text-xs text-gray-500">
                   Необязательное поле. Если точная дата неизвестна, можно ввести только месяц (например 2.2012) или
                   только год (например 2012)
