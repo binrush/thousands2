@@ -1,6 +1,6 @@
 <template>
   <footer class="bg-white dark:bg-gray-900 border-t border-gray-200">
-    <div class="container flex flex-col items-center justify-between p-2 mx-auto space-y-4 sm:space-y-0 sm:flex-row">
+    <div class="container flex flex-col items-center justify-between px-6 py-2 mx-auto space-y-4 sm:space-y-0 sm:flex-row">
       <RouterLink to="/">
         <img src="/logo.svg" alt="Логотип" class="w-auto h-8">
       </RouterLink>
