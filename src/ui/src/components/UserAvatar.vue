@@ -1,6 +1,7 @@
 <template>
   <component 
-    :is="to ? 'RouterLink' : 'div'" 
+    :is="to ? RouterLink : 'div'" 
+    :to="to"
     :class="wrapperClasses"
   >
     <img 
@@ -20,6 +21,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { getImageUrl } from '../utils/images'
 
 const props = defineProps({
