@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import ProminenceTooltip from '../components/ProminenceTooltip.vue'
 import PageHeading from '../components/PageHeading.vue'
+import NonStandardSummitMarker from '../components/NonStandardSummitMarker.vue'
 
 const summits = ref(null)
 const sort_col = ref("ridge")
@@ -89,6 +90,7 @@ const filteredSummits = computed(() => {
   return result
 })
 
+
 onMounted(function () {
   loadSummits()
   let sort = route.query.sort
@@ -170,13 +172,16 @@ watch(
               </svg>
             </td>
             <td class="pr-6 py-4 whitespace-nowrap">
-              <router-link
-                :to="{ name: 'summit', params: { ridge_id: summit.ridge_id, summit_id: summit.id } }"
-                class="text-blue-600 hover:text-blue-800"
-                :class="{ 'font-bold': summit.is_main }"
-              >
-                {{ summit.name ? summit.name : summit.height }}
-              </router-link>
+              <div class="flex items-center gap-1">
+                <router-link
+                  :to="{ name: 'summit', params: { ridge_id: summit.ridge_id, summit_id: summit.id } }"
+                  class="text-blue-600 hover:text-blue-800"
+                  :class="{ 'font-bold': summit.is_main }"
+                >
+                  {{ summit.name ? summit.name : summit.height }}
+                </router-link>
+                <NonStandardSummitMarker :summit="summit" />
+              </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <span :class="{ 'font-bold': summit.is_main }">{{ summit.height }}</span>

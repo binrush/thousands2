@@ -9,6 +9,7 @@ import ProminenceTooltip from '../components/ProminenceTooltip.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ErrorMessage from '../components/ErrorMessage.vue'
+import NonStandardSummitMarker from '../components/NonStandardSummitMarker.vue'
 import { usePagination } from '../composables/usePagination'
 
 const route = useRoute()
@@ -151,6 +152,7 @@ const handleKeydown = (e) => {
     prevImage()
   }
 }
+
 </script>
 
 <template>
@@ -164,9 +166,12 @@ const handleKeydown = (e) => {
       <div class="lg:flex">
         <div class="flex w-full lg:w-1/2">
           <div class="max-w-xl">
-            <h1 class="text-3xl font-bold text-gray-900">
-              {{ summit.name || summit.height }}
-              <span v-if="summit.name_alt" class="text-gray-500 text-sm">({{ summit.name_alt }})</span>
+            <h1 class="text-3xl font-bold text-gray-900 flex items-center gap-2">
+              <span>
+                {{ summit.name || summit.height }}
+                <span v-if="summit.name_alt" class="text-gray-500 text-sm">({{ summit.name_alt }})</span>
+              </span>
+              <NonStandardSummitMarker :summit="summit" />
             </h1>
 
             <div class="mt-2 flex items-center">
