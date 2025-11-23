@@ -272,7 +272,7 @@ func (s *Storage) LoadRidge(dir string, ridgeId string, tx *sql.Tx) error {
 			summit.Interpretation, summit.Description,
 			summit.Height, summit.Prominence, summit.Coordinates[0], summit.Coordinates[1])
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to insert summit %s/%s: %w", ridgeId, summitId, err)
 		}
 
 		for _, legacyId := range summit.LegacyIds {
