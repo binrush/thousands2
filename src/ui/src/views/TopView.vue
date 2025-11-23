@@ -24,7 +24,7 @@
             </RouterLink>
           </div>
           <div class="text-lg whitespace-nowrap ml-4">
-            {{ climber.climbs_num }}/255
+            {{ climber.climbs_num }}/{{ topClimbers.total_summits }}
           </div>
         </li>
       </ul>
@@ -43,7 +43,8 @@ import { usePagination } from '../composables/usePagination'
 const topClimbers = ref({
   items: [],
   page: 1,
-  total_pages: 1
+  total_pages: 1,
+  total_summits: 0
 })
 
 // Fetch function for top climbers

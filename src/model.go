@@ -177,9 +177,10 @@ type TopItem struct {
 }
 
 type Top struct {
-	Items      []TopItem `json:"items"`
-	Page       int       `json:"page"`
-	TotalPages int       `json:"total_pages"`
+	Items        []TopItem `json:"items"`
+	Page         int       `json:"page"`
+	TotalPages   int       `json:"total_pages"`
+	TotalSummits int       `json:"total_summits"`
 }
 
 type User struct {
@@ -576,6 +577,13 @@ func (s *Storage) FetchTop(page, itemsPerPage int) (*Top, error) {
 		return nil, err
 	}
 	result.TotalPages = totalItems/itemsPerPage + 1
+
+	totalSummits, err := s.CountSummits()
+	if err != nil {
+		return nil, err
+	}
+	result.TotalSummits = totalSummits
+
 	result.Items = make([]TopItem, 0)
 	query = `SELECT users.id, users.name, ui.url, count(*) as climbs, 
             MAX(coalesce(day, 32) | (coalesce(month, 13) << 8) | (coalesce(year, 2100) << 16)) 
@@ -748,4 +756,16 @@ func (s *Storage) FetchUserClimbs(userId int64) ([]Summit, error) {
 		climbs = append(climbs, summit)
 	}
 	return climbs, nil
+}
+
+func (s *Storage) CountSummits() (int, error) {
+	query := "select count(*) from summits"
+	row := s.db.QueryRow(query)
+	var c int
+	err := row.Scan(&c)
+	if err != nil {
+		return 0, err
+	} else {
+		return c, nil
+	}
 }
