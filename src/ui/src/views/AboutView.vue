@@ -58,7 +58,7 @@ import PageHeading from '../components/PageHeading.vue'
         <a href="https://vk.ru/ivgeni" class="text-blue-600 hover:underline">Евгению Безгодову</a> — за администрирование проекта и фотографии вершин.
       </p>
       <p class="mb-4">
-        <a href="https://vk.ru/id19829905" class="text-blue-600 hover:underline">Илье прохорову</a> — за помощь в разработке.
+        <a href="https://vk.ru/id19829905" class="text-blue-600 hover:underline">Илье Прохорову</a> — за помощь в разработке.
       </p>
   </div>
 </template>
