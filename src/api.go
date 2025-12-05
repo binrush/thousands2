@@ -15,7 +15,6 @@ import (
 const (
 	internalServerErrorMsg = "Internal server error"
 	notFoundMsg            = "Path not found"
-	methodNotAllowedMsg    = "Method not allowed"
 	authRequiredMsg        = "Authentication required"
 )
 
@@ -58,6 +57,7 @@ func NewApi(config *RuntimeConfig, storage *Storage, sm *scs.SessionManager) *Ap
 	api.router.Get("/user/me", api.handleUserMe)
 	api.router.Get("/user/{userId}", api.handleUser)
 	api.router.Get("/user/{userId}/climbs", api.handleUserClimbs)
+	api.router.Get("/user/{userId}/missing", api.handleUserMissingSummits)
 
 	return api
 }
@@ -328,6 +328,22 @@ func (h *Api) handleUserClimbs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.writeJSON(w, climbs)
+}
+
+func (h *Api) handleUserMissingSummits(w http.ResponseWriter, r *http.Request) {
+	userIdStr := chi.URLParam(r, "userId")
+	userId, err := strconv.ParseInt(userIdStr, 10, 64)
+	if err != nil {
+		h.writeError(w, pathNotFoundError)
+		return
+	}
+	missingSummits, err := h.Storage.FetchUserMissingSummits(userId)
+	if err != nil {
+		slog.Error("Failed to fetch missing summits for user", "userId", userId, "error", err)
+		h.writeError(w, serverError)
+		return
+	}
+	h.writeJSON(w, missingSummits)
 }
 
 func (h *Api) writeJSON(w http.ResponseWriter, data interface{}) {

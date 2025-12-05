@@ -1,0 +1,34 @@
+[
+  {
+    "climb_data": null,
+    "coordinates": [0, 0],
+    "description": null,
+    "height": 1021,
+    "id": "1021",
+    "images": null,
+    "interpretation": null,
+    "name": null,
+    "name_alt": null,
+    "ridge": {
+      "color": "",
+      "id": "stolby",
+      "name": "Столбы"
+    }
+  },
+  {
+    "climb_data": null,
+    "coordinates": [0, 0],
+    "description": null,
+    "height": 1026,
+    "id": "stolby",
+    "images": null,
+    "interpretation": null,
+    "name": "Столбы",
+    "name_alt": null,
+    "ridge": {
+      "color": "",
+      "id": "stolby",
+      "name": "Столбы"
+    }
+  }
+]

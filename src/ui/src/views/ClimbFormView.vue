@@ -77,7 +77,12 @@ async function submitClimb() {
     })
 
     if (response.ok) {
-      router.push({ name: 'summit', params: route.params })
+      // Check if we should return to user view
+      if (route.query.returnTo === 'user') {
+        router.push({ name: 'user', params: { user_id: 'me' } })
+      } else {
+        router.push({ name: 'summit', params: route.params })
+      }
     } else {
       throw new Error('Failed to submit climb')
     }
@@ -103,7 +108,12 @@ async function deleteClimb() {
     })
 
     if (response.ok) {
-      router.push({ name: 'summit', params: route.params })
+      // Check if we should return to user view
+      if (route.query.returnTo === 'user') {
+        router.push({ name: 'user', params: { user_id: 'me' } })
+      } else {
+        router.push({ name: 'summit', params: route.params })
+      }
     } else {
       throw new Error('Failed to delete climb')
     }

@@ -724,6 +724,32 @@ func (s *Storage) DeleteClimb(summitId string, userId int64) error {
 	return nil
 }
 
+func (s *Storage) FetchUserMissingSummits(userId int64) ([]Summit, error) {
+	query := `select summits.id, summits.name, summits.height,
+					 ridges.id, ridges.name
+		from summits 
+			inner join ridges on summits.ridge_id = ridges.id 
+		where summits.id not in (select summit_id from climbs where user_id = ?)
+		order by ridges.name, summits.lat DESC`
+	rows, err := s.db.Query(query, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	summits := make([]Summit, 0)
+	for rows.Next() {
+		var summit Summit
+		var ridge Ridge
+		err := rows.Scan(&summit.Id, &summit.Name, &summit.Height, &ridge.Id, &ridge.Name)
+		if err != nil {
+			return nil, err
+		}
+		summit.Ridge = &ridge
+		summits = append(summits, summit)
+	}
+	return summits, nil
+}
+
 func (s *Storage) FetchUserClimbs(userId int64) ([]Summit, error) {
 	query := `select summits.id, summits.name, summits.height,
 					 ridges.id, ridges.name, 

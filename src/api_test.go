@@ -137,6 +137,8 @@ func TestHandlersClientErrors(t *testing.T) {
 		{"non-numeric user id", "/api/user/abcd", http.StatusNotFound},
 		{"invalid user check", "/api/user/1/check", http.StatusNotFound},
 		{"non-existent user", "/api/user/123", http.StatusNotFound},
+		{"invalid user missing endpoint non-numeric", "/api/user/abcd/missing", http.StatusNotFound},
+		{"invalid user missing endpoint empty", "/api/user//missing", http.StatusNotFound},
 	}
 	app := GetMockApp(t, 5, &RuntimeConfig{Datadir: "testdata/summits"})
 
@@ -177,6 +179,7 @@ func TestHandlersHappyPath(t *testing.T) {
 		{"malinovaja summit", "/api/summit/malidak/malinovaja", "summit-3.json", nil},
 		{"user profile", "/api/user/5", "user-1.json", nil},
 		{"user climbs", "/api/user/5/climbs", "user-climbs-1.json", nil},
+		{"user missing summits", "/api/user/5/missing", "user-missing-summits-1.json", nil},
 		// summit with legacy ids should be available by any id
 		{"summit by legacy ids", "/api/summit/stolby/1026-1", "summit-by-legacy-id.json", nil},
 		{"summit by legacy ids", "/api/summit/stolby/1026", "summit-by-legacy-id.json", nil},

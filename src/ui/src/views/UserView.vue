@@ -1,6 +1,6 @@
 <script setup>
 import { inject, ref, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { formatRussianDate } from '../utils/dates'
 import UserAvatar from '../components/UserAvatar.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -12,12 +12,15 @@ const props = defineProps({
   }
 })
 
+const route = useRoute()
+const router = useRouter()
 const currentUser = inject('currentUser')
 const user = ref(null)
 const climbs = ref([])
+const missingSummits = ref([])
+const activeTab = ref(route.query.tab || 'visited')
 const isLoading = ref(true)
 const error = ref(null)
-const route = useRoute()
 
 // Watch for user data changes to update page title
 watch(user, (newUser) => {
@@ -25,6 +28,23 @@ watch(user, (newUser) => {
     document.title = `${newUser.name} | Тысячники Южного Урала`
   }
 }, { immediate: true })
+
+// Watch for tab query parameter changes
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && (newTab === 'visited' || newTab === 'missing')) {
+    activeTab.value = newTab
+  } else if (!newTab) {
+    activeTab.value = 'visited'
+  }
+})
+
+// Function to switch tabs and update URL
+function switchTab(tab) {
+  activeTab.value = tab
+  router.replace({ 
+    query: { ...route.query, tab: tab === 'visited' ? undefined : tab }
+  })
+}
 
 async function loadUser() {
   try {
@@ -53,13 +73,21 @@ async function loadUser() {
       }
     }
 
-    // Load climbs
+    // Load climbs and missing summits
     const actualUserId = userId === 'me' ? currentUser.value.id : userId
     const climbsResponse = await fetch(`/api/user/${actualUserId}/climbs`)
     if (climbsResponse.ok) {
       climbs.value = await climbsResponse.json()
     } else {
       error.value = 'Не удалось загрузить список восхождений'
+      return
+    }
+
+    const missingResponse = await fetch(`/api/user/${actualUserId}/missing`)
+    if (missingResponse.ok) {
+      missingSummits.value = await missingResponse.json()
+    } else {
+      error.value = 'Не удалось загрузить список непосещённых вершин'
     }
   } catch (error) {
     console.error('Error loading user:', error)
@@ -115,15 +143,48 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Climbs Section -->
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">
-        Восхождения <span v-if="climbs.length > 0" class="text-sm font-normal text-gray-500">({{ climbs.length }})</span>
-      </h2>
-      <div v-if="!climbs.length" class="text-center text-gray-500">
-        Пока нет зарегистрированных восхождений
+      <!-- Tabs Section -->
+      <div class="border-b border-gray-200">
+        <nav class="-mb-px flex space-x-8">
+          <button
+            @click="switchTab('visited')"
+            :class="[
+              activeTab === 'visited'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+              'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm'
+            ]"
+          >
+            Восхождения
+            <span v-if="climbs.length > 0" class="ml-2 py-0.5 px-2 rounded-full text-xs" 
+              :class="activeTab === 'visited' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'">
+              {{ climbs.length }}
+            </span>
+          </button>
+          <button
+            @click="switchTab('missing')"
+            :class="[
+              activeTab === 'missing'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+              'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm'
+            ]"
+          >
+            Не посещённые
+            <span v-if="missingSummits.length > 0" class="ml-2 py-0.5 px-2 rounded-full text-xs"
+              :class="activeTab === 'missing' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'">
+              {{ missingSummits.length }}
+            </span>
+          </button>
+        </nav>
       </div>
-      <div v-else>
-        <ul>
+
+      <!-- Visited Climbs Tab -->
+      <div v-if="activeTab === 'visited'">
+        <div v-if="!climbs.length" class="text-center text-gray-500 py-8">
+          Пока нет зарегистрированных восхождений
+        </div>
+        <ul v-else>
           <li v-for="climb in climbs" :key="climb.id" class="py-2 border-b last:border-b-0 flex flex-col">
             <div class="flex justify-between items-baseline">
               <div>
@@ -138,7 +199,7 @@ onMounted(() => {
                   {{ formatRussianDate(climb.climb_data?.date) }}
                 </div>
                 <template v-if="(props.user_id === 'me' || user?.id === currentUser?.id)">
-                  <RouterLink :to="`/${climb.ridge.id}/${climb.id}/climb`"
+                  <RouterLink :to="`/${climb.ridge.id}/${climb.id}/climb?returnTo=user`"
                     class="ml-2 text-blue-500 hover:underline text-xs">
                     Редактировать
                   </RouterLink>
@@ -147,6 +208,32 @@ onMounted(() => {
             </div>
             <div v-if="climb.climb_data?.comment" class="text-sm mt-1">
               {{ climb.climb_data.comment }}
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Missing Summits Tab -->
+      <div v-if="activeTab === 'missing'">
+        <div v-if="!missingSummits.length" class="text-center text-gray-500 py-8">
+          Все вершины посещены!
+        </div>
+        <ul v-else>
+          <li v-for="summit in missingSummits" :key="summit.id" class="py-2 border-b last:border-b-0 flex flex-col">
+            <div class="flex justify-between items-baseline">
+              <div>
+                <RouterLink :to="`/${summit.ridge.id}/${summit.id}`"
+                  class="font-bold text-lg text-gray-900 hover:text-blue-600">
+                  {{ summit.name || summit.height }}
+                </RouterLink>
+                <span class="text-sm text-gray-600 ml-2">хребет {{ summit.ridge.name }}</span>
+              </div>
+              <template v-if="(props.user_id === 'me' || user?.id === currentUser?.id)">
+                <RouterLink :to="`/${summit.ridge.id}/${summit.id}/climb?returnTo=user`"
+                  class="ml-2 text-blue-500 hover:underline text-xs">
+                  Зарегистрировать восхождение
+                </RouterLink>
+              </template>
             </div>
           </li>
         </ul>
