@@ -1,6 +1,35 @@
 <template>
   <div class="max-w-screen-md mx-auto overflow-hidden">
       <PageHeading>Рейтинг восходителей</PageHeading>
+      
+      <!-- Tabs Section -->
+      <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8">
+          <button
+            @click="switchTab('all-time')"
+            :class="[
+              activeTab === 'all-time'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+              'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm'
+            ]"
+          >
+            За все время
+          </button>
+          <button
+            @click="switchTab('year')"
+            :class="[
+              activeTab === 'year'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+              'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm'
+            ]"
+          >
+            За текущий год
+          </button>
+        </nav>
+      </div>
+
       <div v-if="!topClimbers.items.length" class="text-center text-gray-500 py-8">
         Нет данных для отображения
       </div>
@@ -35,10 +64,16 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Pagination from '../components/Pagination.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import PageHeading from '../components/PageHeading.vue'
 import { usePagination } from '../composables/usePagination'
+
+const route = useRoute()
+const router = useRouter()
+
+const activeTab = ref(route.query.tab || 'all-time')
 
 const topClimbers = ref({
   items: [],
@@ -47,10 +82,30 @@ const topClimbers = ref({
   total_summits: 0
 })
 
+// Watch for tab query parameter changes
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && (newTab === 'all-time' || newTab === 'year')) {
+    activeTab.value = newTab
+  } else if (!newTab) {
+    activeTab.value = 'all-time'
+  }
+})
+
+// Function to switch tabs and update URL
+function switchTab(tab) {
+  activeTab.value = tab
+  currentPage.value = 1
+  router.replace({ 
+    query: { ...route.query, tab: tab === 'all-time' ? undefined : tab }
+  })
+  fetchTopClimbers(1)
+}
+
 // Fetch function for top climbers
 async function fetchTopClimbers(page = 1) {
   try {
-    const response = await fetch(`/api/top?page=${page}`)
+    const endpoint = activeTab.value === 'year' ? '/api/top/year' : '/api/top'
+    const response = await fetch(`${endpoint}?page=${page}`)
     if (response.ok) {
       const data = await response.json()
       topClimbers.value = data

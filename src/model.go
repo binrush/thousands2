@@ -375,6 +375,12 @@ func (s *Storage) LoadSummits(dataDir string) error {
 	return nil
 }
 
+func (s *Storage) Count(query string, params ...any) (int, error) {
+	var count int
+	err := s.db.QueryRow(query, params...).Scan(&count)
+	return count, err
+}
+
 func (s *Storage) FetchSummits(userId int64) (*SummitsTable, error) {
 	summits := make([]SummitsTableItem, 0)
 	query := `SELECT s.id, s.name, s.height, s.prominence, s.lat, s.lng, r.name, r.id, r.color, COUNT(c.user_id), 
@@ -561,44 +567,39 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 	return &summit, nil
 }
 
-func (s *Storage) FetchTop(page, itemsPerPage int) (*Top, error) {
-	var result Top
-	result.Page = page
-	tx, err := s.db.Begin()
-	defer tx.Commit()
-	query := `SELECT COUNT(DISTINCT user_id) 
+func (s *Storage) fetchTopItems(year, page, itemsPerPage int) ([]TopItem, int, error) {
+	whereClause := ""
+	params := []any{}
+	if year != 0 {
+		whereClause = " WHERE year = ?"
+		params = append(params, year)
+	}
+	queryCount := `SELECT COUNT(DISTINCT user_id) 
         FROM users INNER JOIN climbs ON users.id=climbs.user_id`
-	if err != nil {
-		return nil, err
-	}
-	var totalItems int
-	err = tx.QueryRow(query).Scan(&totalItems)
-	if err != nil {
-		return nil, err
-	}
-	result.TotalPages = totalItems/itemsPerPage + 1
+	queryCount += whereClause
 
-	totalSummits, err := s.CountSummits()
+	totalItems, err := s.Count(queryCount, params...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	result.TotalSummits = totalSummits
+	totalPages := totalItems/itemsPerPage + 1
 
-	result.Items = make([]TopItem, 0)
-	query = `SELECT users.id, users.name, ui.url, count(*) as climbs, 
+	items := make([]TopItem, 0, itemsPerPage)
+	query := `SELECT users.id, users.name, ui.url, count(*) as climbs, 
             MAX(coalesce(day, 32) | (coalesce(month, 13) << 8) | (coalesce(year, 2100) << 16)) 
                 AS last_climb 
         FROM users INNER JOIN climbs ON users.id=climbs.user_id 
-        LEFT JOIN user_images ui ON users.id = ui.user_id AND ui.size = 'S'
-        GROUP BY users.id, users.name
-        ORDER BY climbs DESC, last_climb ASC 
-        LIMIT ? OFFSET ?`
+        LEFT JOIN user_images ui ON users.id = ui.user_id AND ui.size = 'S'`
+	query += whereClause
+	query += " GROUP BY users.id, users.name ORDER BY climbs DESC, last_climb ASC LIMIT ? OFFSET ?"
 	offset := (page - 1) * itemsPerPage
-	rows, err := tx.Query(query, itemsPerPage, offset)
+	params = append(params, itemsPerPage, offset)
+	rows, err := s.db.Query(query, params...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
+
 	i := 0
 	for rows.Next() {
 		var ti TopItem
@@ -606,15 +607,35 @@ func (s *Storage) FetchTop(page, itemsPerPage int) (*Top, error) {
 		var imageUrl sql.NullString
 		err := rows.Scan(&ti.UserId, &ti.UserName, &imageUrl, &ti.ClimbsNum, &lastClimb)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if imageUrl.Valid {
 			ti.UserImage = imageUrl.String
 		}
 		ti.Place = offset + i + 1
-		result.Items = append(result.Items, ti)
+		items = append(items, ti)
 		i++
 	}
+	return items, totalPages, nil
+}
+
+func (s *Storage) FetchTop(year, page, itemsPerPage int) (*Top, error) {
+	var result Top
+	result.Page = page
+
+	totalSummits, err := s.Count("SELECT COUNT(*) FROM summits")
+	if err != nil {
+		return nil, err
+	}
+	result.TotalSummits = totalSummits
+
+	items, totalPages, err := s.fetchTopItems(year, page, itemsPerPage)
+	if err != nil {
+		return nil, err
+	}
+	result.Items = items
+	result.TotalPages = totalPages
+
 	return &result, nil
 }
 

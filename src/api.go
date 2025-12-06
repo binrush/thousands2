@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -54,6 +56,7 @@ func NewApi(config *RuntimeConfig, storage *Storage, sm *scs.SessionManager) *Ap
 	api.router.Get("/summits", api.handleSummits)
 	api.router.Get("/summits/gpx", api.handleSummitsGPX)
 	api.router.Get("/top", api.handleTop)
+	api.router.Get("/top/year", api.handleTopYear)
 	api.router.Get("/user/me", api.handleUserMe)
 	api.router.Get("/user/{userId}", api.handleUser)
 	api.router.Get("/user/{userId}/climbs", api.handleUserClimbs)
@@ -254,23 +257,44 @@ func (h *Api) handleSummitsGPX(w http.ResponseWriter, r *http.Request) {
 	w.Write(gpxXML)
 }
 
-func (h *Api) handleTop(w http.ResponseWriter, r *http.Request) {
+func parsePageParam(r *http.Request) (int, error) {
 	page := 1
 	pageParam := r.URL.Query()["page"]
+	errorInvalidPageParam := errors.New("invalid page parameter provided")
 	if pageParam != nil {
 		if len(pageParam) != 1 {
-			h.writeError(w, &ApiError{"Invalid page parameter provided", http.StatusBadRequest})
-			return
+			return 0, errorInvalidPageParam
 		}
 		var err error
 		page, err = strconv.Atoi(pageParam[0])
 		if err != nil || page <= 0 {
-			h.writeError(w, &ApiError{"Invalid page parameter provided", http.StatusBadRequest})
-			return
+			return 0, errorInvalidPageParam
 		}
 	}
+	return page, nil
+}
 
-	top, err := h.Storage.FetchTop(page, h.Config.ItemsPerPage)
+func (h *Api) handleTop(w http.ResponseWriter, r *http.Request) {
+	page, err := parsePageParam(r)
+	if err != nil {
+		h.writeError(w, &ApiError{err.Error(), http.StatusBadRequest})
+		return
+	}
+	h.serveTop(0, page, h.Config.ItemsPerPage, w)
+}
+
+func (h *Api) handleTopYear(w http.ResponseWriter, r *http.Request) {
+	page, err := parsePageParam(r)
+	if err != nil {
+		h.writeError(w, &ApiError{err.Error(), http.StatusBadRequest})
+		return
+	}
+	year := time.Now().Year()
+	h.serveTop(year, page, h.Config.ItemsPerPage, w)
+}
+
+func (h *Api) serveTop(year, page, itemsPerPage int, w http.ResponseWriter) {
+	top, err := h.Storage.FetchTop(year, page, itemsPerPage)
 	if err != nil {
 		slog.Error("Failed to fetch top", "error", err)
 		h.writeError(w, serverError)

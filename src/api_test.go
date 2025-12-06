@@ -13,8 +13,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tkrajina/gpxgo/gpx"
@@ -65,6 +68,8 @@ func MockDatabase(t *testing.T) *sql.DB {
 func GetMockApp(t *testing.T, userId int64, config *RuntimeConfig) *App {
 	db := MockDatabase(t)
 	sm := scs.New()
+	// stop cleanup goroutine to avoid issues with synctest
+	sm.Store.(*memstore.MemStore).StopCleanup()
 	sm.Store = NewMockSessionStore(userId)
 	storage := NewStorage(db)
 	err := storage.LoadSummits(config.Datadir)
@@ -153,6 +158,31 @@ func TestHandlersClientErrors(t *testing.T) {
 			assert.Equal(t, tt.expectedCode, rr.Code, "handler returned wrong status code for %s", tt.url)
 		})
 	}
+}
+
+func TestTopYear(t *testing.T) {
+	conf := &RuntimeConfig{
+		Datadir:      "testdata/summits",
+		ItemsPerPage: 5,
+	}
+	app := GetMockApp(t, 7, conf)
+	synctest.Test(t, func(t *testing.T) {
+		time.Sleep(time.Hour * 24 * (365*15 + 4)) // mocking 2015
+
+		req, err := http.NewRequest("GET", "/api/top/year", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		app.router.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+		require.Equal(t, "application/json", rr.Header().Get("Content-Type"), "Wrong Content-Type header")
+
+		expected, err := os.ReadFile(filepath.Join("testdata/responses", "top-year-2015.json"))
+		require.NoError(t, err, "Failed to read expected json data")
+
+		assert.JSONEq(t, string(expected), rr.Body.String(), "Response body mismatch")
+	})
 }
 
 func TestHandlersHappyPath(t *testing.T) {
