@@ -20,6 +20,12 @@ const (
 	ImageSmall  = "S"
 )
 
+const SQL_EXPAND_YEAR = `(CASE 
+  WHEN year > 0 AND year < 50 THEN year + 2000 
+  WHEN year >= 50 AND year <= 99 THEN year + 1900 
+  ELSE year 
+END)`
+
 func toSqlNullInt64(value int64) sql.NullInt64 {
 	var result sql.NullInt64
 	if value == 0 {
@@ -29,6 +35,22 @@ func toSqlNullInt64(value int64) sql.NullInt64 {
 	result.Valid = true
 	result.Int64 = value
 	return result
+}
+
+func expandYear(year int64) int64 {
+	if year > 0 && year < 100 {
+		if year < 50 {
+			return year + 2000
+		}
+		return year + 1900
+	}
+	return year
+}
+
+func fixNullYear(year *sql.NullInt64) {
+	if year.Valid {
+		year.Int64 = expandYear(year.Int64)
+	}
 }
 
 type InexactDate struct {
@@ -73,8 +95,6 @@ func (id *InexactDate) Parse(date string) error {
 	if err != nil {
 		return err
 	}
-	dateFormat := "2006-01-02"
-	var validationValue string
 	var year, month, day int64
 	switch len(parts) {
 	case 0:
@@ -82,17 +102,26 @@ func (id *InexactDate) Parse(date string) error {
 		return nil
 	case 1:
 		year, month, day = parts[0], 0, 0
-		validationValue = fmt.Sprintf("%04d-01-01", year)
 	case 2:
 		year, month, day = parts[1], parts[0], 0
-		validationValue = fmt.Sprintf("%04d-%02d-01", year, month)
 	case 3:
 		year, month, day = parts[2], parts[1], parts[0]
-		validationValue = fmt.Sprintf("%04d-%02d-%02d", year, month, day)
 	default:
 		// should not happen
 		return fmt.Errorf("invalid data: %v", parts)
 	}
+	year = expandYear(year)
+	dateFormat := "2006-01-02"
+	vYear := year
+	vMonth := month
+	if vMonth == 0 {
+		vMonth = 1
+	}
+	vDay := day
+	if vDay == 0 {
+		vDay = 1
+	}
+	validationValue := fmt.Sprintf("%04d-%02d-%02d", vYear, vMonth, vDay)
 	_, err = time.Parse(dateFormat, validationValue)
 	if err != nil {
 		return fmt.Errorf("failed to parse inexact date %s: %v", date, err)
@@ -460,7 +489,7 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 		INNER JOIN users u ON c.user_id = u.id
 		LEFT JOIN user_images ui ON u.id = ui.user_id AND ui.size = 'S'
 		WHERE c.summit_id = ?
-		ORDER BY year ASC NULLS LAST, month ASC NULLS LAST, day ASC NULLS LAST
+		ORDER BY ` + SQL_EXPAND_YEAR + ` ASC NULLS LAST, month ASC NULLS LAST, day ASC NULLS LAST
 		LIMIT ? OFFSET ?`
 	rows, err := s.db.Query(query, summitId, itemsPerPage, offset)
 	if err != nil {
@@ -473,6 +502,7 @@ func (s *Storage) FetchSummitClimbs(summitId string, page, itemsPerPage int) ([]
 		var year, month, day sql.NullInt64
 		var url sql.NullString
 		err := rows.Scan(&climb.UserId, &climb.UserName, &url, &year, &month, &day, &climb.Comment)
+		fixNullYear(&year)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -542,6 +572,7 @@ func (s *Storage) FetchSummit(summitId string, userId int64) (*Summit, error) {
 		var year, month, day sql.NullInt64
 		var comment sql.NullString
 		err := s.db.QueryRow(climbQuery, summit.Id, userId).Scan(&year, &month, &day, &comment)
+		fixNullYear(&year)
 		switch err {
 		case sql.ErrNoRows:
 			summit.ClimbData = nil
@@ -571,8 +602,9 @@ func (s *Storage) fetchTopItems(year, page, itemsPerPage int) ([]TopItem, int, e
 	whereClause := ""
 	params := []any{}
 	if year != 0 {
-		whereClause = " WHERE year = ?"
-		params = append(params, year)
+		shortYear := year % 100
+		whereClause = " WHERE (year = ? OR year = ?)"
+		params = append(params, year, shortYear)
 	}
 	queryCount := `SELECT COUNT(DISTINCT user_id) 
         FROM users INNER JOIN climbs ON users.id=climbs.user_id`
@@ -585,13 +617,21 @@ func (s *Storage) fetchTopItems(year, page, itemsPerPage int) ([]TopItem, int, e
 	totalPages := totalItems/itemsPerPage + 1
 
 	items := make([]TopItem, 0, itemsPerPage)
-	query := `SELECT users.id, users.name, ui.url, count(*) as climbs, 
-            MAX(coalesce(day, 32) | (coalesce(month, 13) << 8) | (coalesce(year, 2100) << 16)) 
-                AS last_climb 
-        FROM users INNER JOIN climbs ON users.id=climbs.user_id 
-        LEFT JOIN user_images ui ON users.id = ui.user_id AND ui.size = 'S'`
-	query += whereClause
-	query += " GROUP BY users.id, users.name ORDER BY climbs DESC, last_climb ASC LIMIT ? OFFSET ?"
+	lastClimbFormula := fmt.Sprintf(
+		"MAX(coalesce(day, 32) | (coalesce(month, 13) << 8) | (coalesce(%s, 2100) << 16))",
+		SQL_EXPAND_YEAR,
+	)
+	query := fmt.Sprintf(`
+		SELECT users.id, users.name, ui.url, count(*) as climbs, %s AS last_climb 
+		FROM users 
+		INNER JOIN climbs ON users.id = climbs.user_id 
+		LEFT JOIN user_images ui ON users.id = ui.user_id AND ui.size = 'S'
+		%s 
+		GROUP BY users.id, users.name 
+		ORDER BY climbs DESC, last_climb ASC 
+		LIMIT ? OFFSET ?`,
+		lastClimbFormula, whereClause,
+	)
 	offset := (page - 1) * itemsPerPage
 	params = append(params, itemsPerPage, offset)
 	rows, err := s.db.Query(query, params...)
@@ -779,7 +819,7 @@ func (s *Storage) FetchUserClimbs(userId int64) ([]Summit, error) {
 			inner join climbs on summits.id = climbs.summit_id 
 			inner join ridges on summits.ridge_id = ridges.id 
 		where climbs.user_id = ?
-		order by year ASC NULLS LAST, month ASC NULLS LAST, day ASC NULLS LAST, summits.id ASC`
+		order by ` + SQL_EXPAND_YEAR + ` ASC NULLS LAST, month ASC NULLS LAST, day ASC NULLS LAST, summits.id ASC`
 	rows, err := s.db.Query(query, userId)
 	if err != nil {
 		return nil, err
@@ -793,6 +833,7 @@ func (s *Storage) FetchUserClimbs(userId int64) ([]Summit, error) {
 		var year, month, day sql.NullInt64
 		err := rows.Scan(
 			&summit.Id, &summit.Name, &summit.Height, &ridge.Id, &ridge.Name, &year, &month, &day, &climbData.Comment)
+		fixNullYear(&year)
 
 		if err != nil {
 			return nil, err
