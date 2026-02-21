@@ -74,7 +74,7 @@ func (id *InexactDate) Parse(date string) error {
 		return err
 	}
 	dateFormat := "2006-01-02"
-	var validationValue string
+	var validationFmt string
 	var year, month, day int64
 	switch len(parts) {
 	case 0:
@@ -82,20 +82,27 @@ func (id *InexactDate) Parse(date string) error {
 		return nil
 	case 1:
 		year, month, day = parts[0], 0, 0
-		validationValue = fmt.Sprintf("%04d-01-01", year)
+		validationFmt = fmt.Sprintf("%04d-01-01", year)
 	case 2:
 		year, month, day = parts[1], parts[0], 0
-		validationValue = fmt.Sprintf("%04d-%02d-01", year, month)
+		validationFmt = fmt.Sprintf("%04d-%02d-01", year, month)
 	case 3:
 		year, month, day = parts[2], parts[1], parts[0]
-		validationValue = fmt.Sprintf("%04d-%02d-%02d", year, month, day)
+		validationFmt = fmt.Sprintf("%04d-%02d-%02d", year, month, day)
 	default:
 		// should not happen
 		return fmt.Errorf("invalid data: %v", parts)
 	}
-	_, err = time.Parse(dateFormat, validationValue)
+	validationValue, err := time.Parse(dateFormat, validationFmt)
 	if err != nil {
 		return fmt.Errorf("failed to parse inexact date %s: %v", date, err)
+	}
+
+	if validationValue.Before(time.Date(1900, time.January, 1, 0, 0, 0, 0, time.UTC)) {
+		return fmt.Errorf("date should be after 1900-01-01: %s", date)
+	}
+	if validationValue.After(time.Now()) {
+		return fmt.Errorf("date should be in the past: %s", date)
 	}
 
 	id.Year, id.Month, id.Day = year, month, day

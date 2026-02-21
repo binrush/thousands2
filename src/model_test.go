@@ -65,7 +65,7 @@ func TestInexactDateParseValid(t *testing.T) {
 
 func TestInexactDateParseInvalid(t *testing.T) {
 	cases := []string{
-		"abc", "1..2022", "1.1.02.2022", "13.2022", "29.2.2015",
+		"abc", "1..2022", "1.1.02.2022", "13.2022", "29.2.2015", "10.11.80", "10.11.2099",
 	}
 	for _, tt := range cases {
 		var id InexactDate

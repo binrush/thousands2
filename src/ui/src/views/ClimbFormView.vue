@@ -12,6 +12,7 @@ const isSubmitting = ref(false)
 const isDeleting = ref(false)
 const summit = ref(null)
 const isLoading = ref(true)
+const dateError = ref('')
 
 const formData = ref({
   date: '',
@@ -37,7 +38,12 @@ function onDatePickerChange(event) {
   if (dateValue) {
     const [year, month, day] = dateValue.split('-')
     formData.value.date = `${day}.${month}.${year}`
+    dateError.value = ''
   }
+}
+
+function clearDateError() {
+  dateError.value = ''
 }
 
 async function fetchSummit() {
@@ -65,6 +71,7 @@ async function fetchSummit() {
 async function submitClimb() {
   if (isSubmitting.value) return
 
+  dateError.value = ''
   isSubmitting.value = true
   try {
     const formDataToSubmit = new FormData()
@@ -83,6 +90,9 @@ async function submitClimb() {
       } else {
         router.push({ name: 'summit', params: route.params })
       }
+    } else if (response.status === 400) {
+      dateError.value = 'Неправильный формат даты'
+      return
     } else {
       throw new Error('Failed to submit climb')
     }
@@ -155,8 +165,13 @@ onMounted(() => {
               <div class="form-group">
                 <label for="date" class="block text-sm text-gray-500 dark:text-gray-300">Дата восхождения</label>
                 <div class="relative mt-2">
-                  <input id="date" type="text" v-model="formData.date"
-                    class="block w-full placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border border-gray-200 bg-white px-5 py-2.5 pr-12 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:focus:border-blue-300 disabled:bg-gray-100 disabled:text-gray-500"
+                  <input id="date" type="text" v-model="formData.date" @input="clearDateError"
+                    :class="[
+                      'block w-full placeholder-gray-400/70 dark:placeholder-gray-500 rounded-lg border bg-white px-5 py-2.5 pr-12 text-gray-700 focus:outline-none focus:ring focus:ring-opacity-40 dark:bg-gray-900 dark:text-gray-300 disabled:bg-gray-100 disabled:text-gray-500',
+                      dateError
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-300 dark:border-red-500 dark:focus:border-red-400'
+                        : 'border-gray-200 focus:border-blue-400 focus:ring-blue-300 dark:border-gray-600 dark:focus:border-blue-300'
+                    ]"
                     placeholder="дд.мм.гггг">
                   <button type="button" 
                     @click="$refs.datePicker.showPicker()"
@@ -174,6 +189,9 @@ onMounted(() => {
                     class="absolute opacity-0 pointer-events-none"
                     tabindex="-1">
                 </div>
+                <p v-if="dateError" class="mt-2 text-sm text-red-600">
+                  {{ dateError }}
+                </p>
                 <p class="mt-2 text-xs text-gray-500">
                   Необязательное поле. Если точная дата неизвестна, можно ввести только месяц (например 2.2012) или
                   только год (например 2012)
